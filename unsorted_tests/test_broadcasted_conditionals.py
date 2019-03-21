@@ -25,12 +25,10 @@ import tensorflow as tf
 from numpy.testing import assert_allclose
 
 import gpflow
-import gpflow.multioutput.features as mf
-import gpflow.multioutput.kernels as mk
-from gpflow.conditionals import conditional, sample_conditional, _rollaxis_left, _rollaxis_right
-from gpflow.multioutput.conditionals import _mix_latent_gp
-from gpflow.test_util import session_tf
-
+import gpflow.features.mo_features as mf
+import gpflow.kernels.mo_kernels as mk
+from gpflow.conditionals import conditional, sample_conditional
+from gpflow.conditionals.util import mix_latent_gp, rollaxis_left, rollaxis_right
 
 class Data:
     S1, S2, N, M = 7, 6, 4, 3
