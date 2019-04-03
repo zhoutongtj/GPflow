@@ -97,3 +97,16 @@ def training_loop(closure: Callable[..., tf.Tensor],
 
     for _ in range(int(maxiter)):
         optimization_step()
+
+
+def broadcasting_elementwise(op, a, b):
+    """
+    Apply binary operation `op` to every pair in tensors `a` and `b`.
+
+    :param op: binary operator on tensors, e.g. tf.add, tf.substract
+    :param a: tf.Tensor, shape [n_1, ..., n_a]
+    :param b: tf.Tensor, shape [m_1, ..., m_b]
+    :return: tf.Tensor, shape [n_1, ..., n_a, m_1, ..., m_b]
+    """
+    flatres = op(tf.reshape(a, [-1, 1]), tf.reshape(b, [1, -1]))
+    return tf.reshape(flatres, tf.concat([tf.shape(a), tf.shape(b)], 0))

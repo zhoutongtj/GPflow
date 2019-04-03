@@ -1,5 +1,7 @@
 import numpy as np
 import tensorflow as tf
+
+from gpflow.util import broadcasting_elementwise
 from ..base import Parameter, positive
 from .base import Kernel
 
@@ -42,17 +44,18 @@ class Stationary(Kernel):
         close to each other.
         """
         X = X / self.lengthscale
-        Xs = tf.reduce_sum(tf.square(X), axis=1)
 
         if X2 is None:
-            dist = -2 * tf.linalg.matmul(X, X, transpose_b=True)
-            dist += tf.reshape(Xs, (-1, 1)) + tf.reshape(Xs, (1, -1))
+            Xs = tf.reduce_sum(tf.square(X), axis=-1, keepdims=True)
+            dist = -2 * tf.matmul(X, X, transpose_b=True)
+            dist += Xs + tf.linalg.transpose(Xs)
             return dist
 
+        Xs = tf.reduce_sum(tf.square(X), axis=-1)
         X2 = X2 / self.lengthscale
-        X2s = tf.reduce_sum(tf.square(X2), axis=1)
-        dist = -2 * tf.linalg.matmul(X, X2, transpose_b=True)
-        dist += tf.reshape(Xs, (-1, 1)) + tf.reshape(X2s, (1, -1))
+        X2s = tf.reduce_sum(tf.square(X2), axis=-1)
+        dist = -2 * tf.tensordot(X, X2, [[-1], [-1]])
+        dist += broadcasting_elementwise(tf.add, Xs, X2s)
         return dist
 
 
@@ -66,7 +69,7 @@ class Stationary(Kernel):
 
 
     def K_diag(self, X, presliced=False):
-        return tf.fill(tf.stack([X.shape[0]]), tf.squeeze(self.variance))
+        return tf.fill((X.shape[:-1]), tf.squeeze(self.variance))
 
 
 class RBF(Stationary):
