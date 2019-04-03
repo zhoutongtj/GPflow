@@ -31,7 +31,8 @@ def default_int() -> int:
     return np.int32
 
 
-def leading_transpose(tensor: tf.Tensor, perm: List[Union[int, type(...)]]) -> tf.Tensor:
+def leading_transpose(tensor: tf.Tensor, perm: List[Union[int, type(...)]],
+                      leading_dim: int = 0) -> tf.Tensor:
     """
     Transposes tensors with leading dimensions. Leading dimensions in
     permutation list represented via ellipsis `...`.
@@ -43,8 +44,15 @@ def leading_transpose(tensor: tf.Tensor, perm: List[Union[int, type(...)]]) -> t
     indices start from 1 up to the tensor rank, viewing leading dimensions `...` as zero
     index.
     Example:
-        a = tf.random.normal((1, 2, 3, 4, 5, 6))
-        b = leading_transpose(a, [5, -3, ..., -2])
+        a = tf.random.normal((1, 2, 3, 4, 5, 6))  # [..., A, B, C],
+                                                  # where A is 1st element,
+                                                  # B is 2nd element and
+                                                  # C is 3rd element in
+                                                  # permutation list,
+                                                  # leading dimentions are [1, 2, 3]
+                                                  # which are 0th element in permutation
+                                                  # list
+        b = leading_transpose(a, [3, -3, ..., -2])  # [C, A, ..., B]
         sess.run(b).shape
         output> (6, 4, 1, 2, 3, 5)
     :param tensor: TensorFlow tensor.
@@ -54,7 +62,7 @@ def leading_transpose(tensor: tf.Tensor, perm: List[Union[int, type(...)]]) -> t
     """
     perm = copy.copy(perm)
     idx = perm.index(...)
-    perm[idx] = 0
+    perm[idx] = leading_dim
 
     rank = tf.rank(tensor)
     perm_tf = perm % rank
