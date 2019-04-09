@@ -1,54 +1,17 @@
-# Copyright 2016 James Hensman, Mark van der Wilk, Valentine Svensson, alexggmatthews, fujiisoup
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
+# Copyright (C) PROWLER.io 2019 - All Rights Reserved
+# Unauthorised copying of this file, via any medium is strictly prohibited
+# Proprietary and confidential
 import abc
-from typing import Optional, Tuple
 
 import tensorflow as tf
-from ..base import Module
-from ..kernels import Kernel
-from ..likelihoods import Likelihood
-from ..mean_functions import MeanFunction, Zero
-from ..util import default_float, default_jitter
 
-MeanAndVariance = Tuple[tf.Tensor, tf.Tensor]
+from gpflow.mean_functions import Zero
+from gpflow.models import BayesianModel
+from gpflow.models.model import MeanAndVariance
+from gpflow.util import default_float, default_jitter
 
 
-# class covstruct(Enum):
-#     none = 0
-#     diag = 1
-#     full = 2
-#     full_output = 3
-
-
-class BayesianModel(Module):
-    """ Bayesian model. """
-
-    def neg_log_marginal_likelihood(self, *args, **kwargs) -> tf.Tensor:
-        return -(self.log_likelihood(*args, **kwargs) + self.log_prior())
-
-    def log_prior(self) -> tf.Tensor:
-        if len(self.variables) == 0:
-            return tf.convert_to_tensor(0., dtype=default_float())
-        return tf.add_n([p.log_prior() for p in self.trainable_parameters])
-
-    @abc.abstractmethod
-    def log_likelihood(self, *args, **kwargs) -> tf.Tensor:
-        pass
-
-
-class GPModel(BayesianModel):
+class GPModelOLD(BayesianModel):
     """
     A base class for Gaussian process models, that is, those of the form
 
@@ -80,12 +43,17 @@ class GPModel(BayesianModel):
     """
 
     def __init__(self,
-                 kernel: Kernel,
-                 likelihood: Likelihood,
-                 mean_function: Optional[MeanFunction] = None,
-                 num_latent: int = 1):
+                 X: object,
+                 Y: object,
+                 kernel: object,
+                 likelihood: object,
+                 mean_function: object = None,
+                 num_latent: object = 1,
+                 seed: object = None) -> object:
         super().__init__()
-        self.num_latent = num_latent
+        self.X = X
+        self.Y = Y
+        self.num_latent = num_latent or Y.shape[1]
         #TODO(@awav): Why is this here when MeanFunction does not have a __len__ method
         if mean_function is None:
             mean_function = Zero()
@@ -94,7 +62,7 @@ class GPModel(BayesianModel):
         self.likelihood = likelihood
 
     @abc.abstractmethod
-    def predict_f(self, X: tf.Tensor, full_cov=False, full_output_cov=False) -> MeanAndVariance:
+    def predict_f(self, X: tf.Tensor, full=False, full_output_cov=False) -> MeanAndVariance:
         pass
 
     def predict_f_samples(self, X, num_samples):
@@ -102,7 +70,7 @@ class GPModel(BayesianModel):
         Produce samples from the posterior latent function(s) at the points
         Xnew.
         """
-        mu, var = self.predict_f(X, full_cov=True)  # [P, N, N]
+        mu, var = self.predict_f(X, full=True)  # [P, N, N]
         jitter = tf.eye(tf.shape(mu)[0], dtype=default_float()) * default_jitter()
         samples = [None] * self.num_latent
         for i in range(self.num_latent):
@@ -129,5 +97,3 @@ class GPModel(BayesianModel):
         """
         f_mean, f_var = self.predict_f(X)
         return self.likelihood.predict_density(f_mean, f_var, Y)
-
-

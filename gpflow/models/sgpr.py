@@ -20,7 +20,8 @@ from gpflow.features import InducingPoints
 from gpflow.covariances.dispatch import Kuf, Kuu
 from gpflow.util import default_float, default_jitter
 
-from .model import GPModel, GPModelOLD, MeanAndVariance
+from .model import GPModel, MeanAndVariance
+from gpflow.models.model_old import GPModelOLD
 from .. import features
 from .. import likelihoods
 from ..mean_functions import Zero

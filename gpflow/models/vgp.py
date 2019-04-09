@@ -21,7 +21,8 @@ from ..base import Parameter, default_float
 from ..mean_functions import Zero
 from ..conditionals import conditional
 from ..kullback_leiblers import gauss_kl
-from ..models.model import GPModel, GPModelOLD
+from ..models.model import GPModel
+from gpflow.models.model_old import GPModelOLD
 
 
 class VGP(GPModelOLD):

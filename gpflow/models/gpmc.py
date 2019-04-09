@@ -19,7 +19,8 @@ import tensorflow_probability as tfp
 
 from gpflow.base import Parameter
 from gpflow.util import default_float, default_jitter
-from .model import GPModelOLD, MeanAndVariance
+from .model import MeanAndVariance
+from gpflow.models.model_old import GPModelOLD
 from ..conditionals import conditional
 
 
