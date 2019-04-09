@@ -6,7 +6,7 @@ from .. import mean_functions as mfn
 from ..features import InducingPoints
 from ..probability_distributions import (DiagonalGaussian, Gaussian,
                                          MarkovGaussian)
-from ..util import NoneType, default_float
+from ..util import NoneType, default_float, square_distance
 from .expectations import expectation
 
 
@@ -186,5 +186,5 @@ def _E(p, kern1, feat1, kern2, feat2, nghp=None):
 
     # Compute sqrt(self(Z)) explicitly to prevent automatic gradient from
     # being NaN sometimes, see pull request #615
-    kernel_sqrt = tf.exp(-0.25 * kern.scaled_square_dist(Z, None))
+    kernel_sqrt = tf.exp(-0.25 * square_distance(Z / kern.lengthscale, None))
     return kern.variance ** 2 * kernel_sqrt * tf.reshape(dets, [N, 1, 1]) * exponent_mahalanobis

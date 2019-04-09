@@ -85,6 +85,7 @@ def training_loop(closure: Callable[..., tf.Tensor],
     :param maxiter: Maximum number of
     :return:
     """
+
     def optimization_step():
         with tf.GradientTape() as tape:
             tape.watch(var_list)
@@ -97,3 +98,20 @@ def training_loop(closure: Callable[..., tf.Tensor],
 
     for _ in range(int(maxiter)):
         optimization_step()
+
+def square_distance(X, X2):
+    """
+    Returns (X - X2ᵀ)²
+    Due to the implementation and floating-point imprecision, the
+    result may actually be very slightly negative for entries very
+    close to each other.
+    """
+    Xs = tf.reduce_sum(tf.square(X), axis=1)
+    if X2 is None:
+        dist = -2 * tf.linalg.matmul(X, X, transpose_b=True)
+        dist += tf.reshape(Xs, (-1, 1)) + tf.reshape(Xs, (1, -1))
+        return dist
+    X2s = tf.reduce_sum(tf.square(X2), axis=1)
+    dist = -2 * tf.linalg.matmul(X, X2, transpose_b=True)
+    dist += tf.reshape(Xs, (-1, 1)) + tf.reshape(X2s, (1, -1))
+    return dist
