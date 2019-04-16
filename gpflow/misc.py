@@ -18,6 +18,7 @@ import numpy as np
 import pandas as pd
 from collections import OrderedDict
 
+from .util import default_float
 from . import settings
 from ._version import __version__
 

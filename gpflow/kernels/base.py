@@ -11,6 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+r"""
+Kernels form a core component of GPflow models and allow prior information to
+be encoded about a latent function of interest. The effect of choosing
+different kernels, and how it is possible to combine multiple kernels is shown
+in the `"Using kernels in GPflow" notebook <notebooks/kernels.html>`_.
+"""
+
 
 import abc
 from functools import partial, reduce
@@ -18,8 +25,6 @@ from typing import Optional
 
 import numpy as np
 import tensorflow as tf
-
-from ..base import Parameter, positive
 
 
 class Kernel(tf.Module):
@@ -29,6 +34,7 @@ class Kernel(tf.Module):
 
     def __init__(self, active_dims: slice = None, name: str = None):
         """
+        active dims is either an iterable of integers or None.
         """
         super().__init__(name)
         if isinstance(active_dims, list):
