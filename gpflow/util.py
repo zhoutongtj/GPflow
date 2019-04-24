@@ -4,6 +4,7 @@ from typing import Callable, List, Union
 
 import numpy as np
 import tensorflow as tf
+from tabulate import tabulate
 
 NoneType = type(None)
 
@@ -93,6 +94,7 @@ def training_loop(closure: Callable[..., tf.Tensor],
     :param maxiter: Maximum number of
     :return:
     """
+
     def optimization_step():
         with tf.GradientTape() as tape:
             tape.watch(var_list)
@@ -118,3 +120,29 @@ def broadcasting_elementwise(op, a, b):
     """
     flatres = op(tf.reshape(a, [-1, 1]), tf.reshape(b, [1, -1]))
     return tf.reshape(flatres, tf.concat([tf.shape(a), tf.shape(b)], 0))
+
+
+def print_parameters_and_variables(module):
+    column_names = ['name', 'class', 'trainable', 'shape', 'value', 'transform']
+    column_values = [[
+        param_path,
+        param.__class__.__name__,
+        param.trainable,
+        param.read_value().shape,
+        _shorten_array(param.read_value().numpy()),
+        param.transform.__class__.__name__ if hasattr(param, 'transform') and param.transform is
+                                              not None else None
+    ] for param_path, param in module.parameter_list()
+    ]
+    return tabulate(column_values, headers=column_names, tablefmt='fancy_grid')
+
+
+def _shorten_array(array):
+    formatter = {'float_kind': lambda x: "%.4f" % x}
+    array_str = np.array2string(array, max_line_width=30, formatter=formatter)
+    array_str_long = np.array2string(array, max_line_width=40, formatter=formatter)
+    extra_items = len(array_str.split('\n')) > len(array_str_long.split('\n'))
+    sufix = ' ... ' if extra_items else ''
+    array_str = array_str.split('...')[0].split('\n')
+    sufix += ', \n ... ' if len(array_str) > 1 else ''
+    return array_str[0] + sufix
