@@ -122,27 +122,33 @@ def broadcasting_elementwise(op, a, b):
     return tf.reshape(flatres, tf.concat([tf.shape(a), tf.shape(b)], 0))
 
 
-def print_parameters_and_variables(module):
-    column_names = ['name', 'class', 'trainable', 'shape', 'value', 'transform']
+def print_summary(module):
+    column_names = ['name', 'class', 'transform', 'trainable', 'shape', 'dtype', 'value']
+    is_param_with_transform = lambda x : hasattr(x, 'transform') and x.transform is not None
     column_values = [[
         param_path,
         param.__class__.__name__,
+        param.transform.__class__.__name__ if is_param_with_transform(param) else 'None',
         param.trainable,
         param.read_value().shape,
-        _shorten_array(param.read_value().numpy()),
-        param.transform.__class__.__name__ if hasattr(param, 'transform') and param.transform is
-                                              not None else None
-    ] for param_path, param in module.parameter_list()
+        param.dtype.name,
+        _shorten_array(param.read_value().numpy())]
+        for param_path, param in module.parameter_list()
     ]
     return tabulate(column_values, headers=column_names, tablefmt='fancy_grid')
 
 
 def _shorten_array(array):
     formatter = {'float_kind': lambda x: "%.4f" % x}
-    array_str = np.array2string(array, max_line_width=30, formatter=formatter)
-    array_str_long = np.array2string(array, max_line_width=40, formatter=formatter)
-    extra_items = len(array_str.split('\n')) > len(array_str_long.split('\n'))
-    sufix = ' ... ' if extra_items else ''
-    array_str = array_str.split('...')[0].split('\n')
-    sufix += ', \n ... ' if len(array_str) > 1 else ''
-    return array_str[0] + sufix
+    short_rows = np.array2string(array, max_line_width=30, formatter=formatter)
+    long_rows = np.array2string(array, max_line_width=60, formatter=formatter)
+    more_items_first_row = len(short_rows.split('\n')) > len(long_rows.split('\n'))
+    first_sufix = ' ... ]' if more_items_first_row else ''
+    array_str = short_rows.split('...')[0].split('\n')
+    more_columns = len(short_rows.split('...')) > 2 or len(short_rows.split('\n')) > 1
+    second_sufix = ', ... ' if more_columns else ''
+    first_item_str = array_str[0]
+    array_str = [item for item in array_str[1:] if item != '']
+    second_item_str = ',' + array_str[0] if more_columns and not more_items_first_row else ''
+
+    return first_item_str + first_sufix + second_item_str + second_sufix

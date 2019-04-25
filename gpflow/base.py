@@ -7,7 +7,7 @@ import tensorflow_probability as tfp
 from tensorflow.python.module.module import AUTO_CHECKPOINTABLE_ATTRS
 from tensorflow.python.ops import array_ops
 
-from .util import default_float, print_parameters_and_variables
+from .util import default_float, print_summary
 
 DType = Union[np.dtype, tf.DType]
 VariableData = Union[List, Tuple, np.ndarray, int, float]
@@ -53,7 +53,7 @@ class Module(tf.Module):
         return params_list
 
     def __str__(self):
-        return print_parameters_and_variables(self)
+        return print_summary(self)
 
 
 class Parameter(tf.Module):
