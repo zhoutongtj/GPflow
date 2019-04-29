@@ -14,7 +14,7 @@ def base_conditional(
         Knn: tf.Tensor,
         function: tf.Tensor,
         *, full_cov=False, q_sqrt=None, white=False):
-    r"""
+    """
     Given a g1 and g2, and distribution p and q such that
       p(g2) = N(g2; 0, Kmm)
       p(g1) = N(g1; 0, Knn)
@@ -43,7 +43,11 @@ def base_conditional(
 
     # get the leadings dims in Kmn to the front of the tensor
     # if Kmn has rank two, i.e. [M, N], this is the identity op.
-    Kmn = leading_transpose(Kmn, [..., 0, -1])  # [..., M, N]
+    K = tf.rank(Kmn)
+    perm = tf.concat([tf.reshape(tf.range(1, K - 1), [K - 2]),  # leading dims (...)
+                      tf.reshape(0, [1]),  # [M]
+                      tf.reshape(K - 1, [1])], 0)  # [N]
+    Kmn = tf.transpose(Kmn, perm)  # [..., M, N]
 
     leading_dims = Kmn.shape[:-2]
     Lm = tf.linalg.cholesky(Kmm)  # [M, M]
@@ -64,7 +68,7 @@ def base_conditional(
 
     # another backsubstitution in the unwhitened case
     if not white:
-        A = tf.linalg.triangular_solve(tf.linalg.transpose(Lm), A, lower=False)
+        A = tf.linalg.triangular_solve(tf.linalg.adjoint(Lm), A, lower=False)
 
     # construct the conditional mean
     f_shape = tf.concat([leading_dims, [M, num_func]], 0)  # [..., M, R]
@@ -91,7 +95,7 @@ def base_conditional(
             fvar = fvar + tf.reduce_sum(tf.square(LTA), -2)  # [R, N]
 
     if not full_cov:
-        fvar = tf.linalg.transpose(fvar)  # [N, R]
+        fvar = tf.linalg.adjoint(fvar)  # [N, R]
 
     return fmean, fvar  # [N, R], [R, N, N] or [N, R]
 
@@ -304,7 +308,7 @@ def fully_correlated_conditional_repeat(Kmn, Kmm, Knn, f, *, full_cov=False, ful
 
     # another backsubstitution in the unwhitened case
     if not white:
-        # A = tf.linalg.triangular_solve(tf.linalg.transpose(Lm), A, lower=False)  # [M, K]
+        # A = tf.linalg.triangular_solve(tf.linalg.adjoint(Lm), A, lower=False)  # [M, K]
         raise NotImplementedError("Need to verify this.")  # pragma: no cover
 
     # f: [M, R]

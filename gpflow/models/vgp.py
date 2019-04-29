@@ -17,7 +17,8 @@ import tensorflow_probability as tfp
 import numpy as np
 
 import gpflow
-from ..base import Parameter, default_float
+from ..base import Parameter
+from ..util import default_float, default_jitter
 from ..mean_functions import Zero
 from ..conditionals import conditional
 from ..kullback_leiblers import gauss_kl
@@ -43,17 +44,17 @@ class VGP(GPModelOLD):
 
     """
 
-    def __init__(self, X, Y, kern, likelihood,
+    def __init__(self, X, Y, kernel, likelihood,
                  mean_function=None,
                  num_latent=None,
                  **kwargs):
         """
         X is a data matrix, size [N, D]
         Y is a data matrix, size [N, R]
-        kern, likelihood, mean_function are appropriate GPflow objects
+        kernel, likelihood, mean_function are appropriate GPflow objects
 
         """
-        GPModelOLD.__init__(self, X, Y, kern, likelihood, mean_function, num_latent, **kwargs)
+        GPModelOLD.__init__(self, X, Y, kernel, likelihood, mean_function, num_latent, **kwargs)
         self.num_data = X.shape[0]
 
         self.q_mu = Parameter(np.zeros((self.num_data, self.num_latent)))
@@ -93,7 +94,7 @@ class VGP(GPModelOLD):
         KL = gauss_kl(self.q_mu, self.q_sqrt)
 
         # Get conditionals
-        K = self.kernel(self.X) + tf.eye(self.num_data, dtype=default_float) * gpflow.default_jitter
+        K = self.kernel(self.X) + tf.eye(self.num_data, dtype=default_float()) * default_jitter()
         L = tf.linalg.cholesky(K)
 
         fmean = tf.linalg.matmul(L, self.q_mu) + self.mean_function(self.X)  # NN,ND->ND
@@ -146,21 +147,21 @@ class VGP_opper_archambeau(GPModel):
 
     """
 
-    def __init__(self, X, Y, kern, likelihood,
+    def __init__(self, X, Y, kernel, likelihood,
                  mean_function=None,
                  num_latent=None,
                  **kwargs):
         """
         X is a data matrix, size [N, D]
         Y is a data matrix, size [N, R]
-        kern, likelihood, mean_function are appropriate GPflow objects
+        kernel, likelihood, mean_function are appropriate GPflow objects
         """
 
         mean_function = Zero() if mean_function is None else mean_function
 
         X = DataHolder(X)
         Y = DataHolder(Y)
-        GPModel.__init__(self, X, Y, kern, likelihood, mean_function, **kwargs)
+        GPModel.__init__(self, X, Y, kernel, likelihood, mean_function, **kwargs)
         self.num_data = X.shape[0]
         self.num_latent = num_latent or Y.shape[1]
         self.q_alpha = Parameter(np.zeros((self.num_data, self.num_latent)))
