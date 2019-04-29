@@ -107,6 +107,7 @@ def training_loop(closure: Callable[..., tf.Tensor],
     for _ in range(int(maxiter)):
         optimization_step()
 
+
 def square_distance(X, X2):
     """
     Returns (X - X2ᵀ)²
@@ -114,14 +115,15 @@ def square_distance(X, X2):
     result may actually be very slightly negative for entries very
     close to each other.
     """
-    Xs = tf.reduce_sum(tf.square(X), axis=1)
     if X2 is None:
-        dist = -2 * tf.linalg.matmul(X, X, transpose_b=True)
-        dist += tf.reshape(Xs, (-1, 1)) + tf.reshape(Xs, (1, -1))
+        Xs = tf.reduce_sum(tf.square(X), axis=-1, keepdims=True)
+        dist = -2 * tf.matmul(X, X, transpose_b=True)
+        dist += Xs + tf.linalg.adjoint(Xs)
         return dist
-    X2s = tf.reduce_sum(tf.square(X2), axis=1)
-    dist = -2 * tf.linalg.matmul(X, X2, transpose_b=True)
-    dist += tf.reshape(Xs, (-1, 1)) + tf.reshape(X2s, (1, -1))
+    Xs = tf.reduce_sum(tf.square(X), axis=-1)
+    X2s = tf.reduce_sum(tf.square(X2), axis=-1)
+    dist = -2 * tf.tensordot(X, X2, [[-1], [-1]])
+    dist += broadcasting_elementwise(tf.add, Xs, X2s)
     return dist
 
 
