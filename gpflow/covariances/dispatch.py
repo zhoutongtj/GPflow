@@ -1,4 +1,4 @@
-from multipledispatch import Dispatcher
+from ..util import Dispatcher
 
-Kuu = Dispatcher('Kuu')
-Kuf = Dispatcher('Kuf')
+Kuu_dispatcher = Dispatcher('Kuu')
+Kuf_dispatcher = Dispatcher('Kuf')
