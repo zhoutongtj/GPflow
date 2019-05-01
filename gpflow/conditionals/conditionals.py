@@ -1,24 +1,30 @@
 # noqa: F811
 
 import tensorflow as tf
+import numpy as np
 
+from .dispatch import conditional_dispatcher
+from .util import base_conditional, expand_independent_outputs
 from ..covariances import Kuf, Kuu
 from ..features import InducingFeature
 from ..kernels import Kernel
-from ..util import create_logger, default_jitter, default_jitter_eye
-from .dispatch import conditional
-from .util import base_conditional, expand_independent_outputs
-
+from ..util import create_logger, default_jitter, default_jitter_eye, Register
 
 logger = create_logger()
 
 
-@conditional.register(object, InducingFeature, Kernel, object)
+def conditional(Xnew: tf.Tensor, feature: InducingFeature, kernel: Kernel, function: tf.Tensor,
+                full_cov=False, full_output_cov=False, q_sqrt=None, white=False):
+    conditional_fn = conditional_dispatcher.registered_fn(type(feature), type(kernel))
+    return conditional_fn(Xnew, feature, kernel, function, full_cov, full_output_cov, q_sqrt, white)
+
+
+@Register(conditional_dispatcher, InducingFeature, Kernel)
 def _conditional(Xnew: tf.Tensor,
                  feature: InducingFeature,
                  kernel: Kernel,
                  function: tf.Tensor,
-                 *, full_cov=False, full_output_cov=False, q_sqrt=None, white=False):
+                 full_cov=False, full_output_cov=False, q_sqrt=None, white=False):
     """
     Single-output GP conditional.
 
@@ -55,17 +61,19 @@ def _conditional(Xnew: tf.Tensor,
     Kmm = Kuu(feature, kernel, jitter=default_jitter())  # [M, M]
     Kmn = Kuf(feature, kernel, Xnew)  # [M, N]
     Knn = kernel(Xnew, full=full_cov)
-    fmean, fvar = base_conditional(Kmn, Kmm, Knn, function, full_cov=full_cov, q_sqrt=q_sqrt, white=white)  # [N, R],  [R, N, N] or [N, R]
+    fmean, fvar = base_conditional(Kmn, Kmm, Knn, function, full_cov=full_cov, q_sqrt=q_sqrt,
+                                   white=white)  # [N, R],  [R, N, N] or [N, R]
     return fmean, expand_independent_outputs(fvar, full_cov, full_output_cov)
 
 
-@conditional.register(object, object, Kernel, object)
+@Register(conditional_dispatcher, np.ndarray, Kernel)
+@Register(conditional_dispatcher, tf.Tensor, Kernel)
 def _conditional(
         Xnew: tf.Tensor,
         X: tf.Tensor,
         kernel: Kernel,
         function: tf.Tensor,
-        *, full_cov=False, full_output_cov=False,
+        full_cov=False, full_output_cov=False,
         q_sqrt=None, white=False):
     """
     Given f, representing the GP at the points X, produce the mean and

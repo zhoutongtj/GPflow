@@ -2,15 +2,14 @@ import tensorflow as tf
 
 from ..features import MixedKernelSharedMof, SeparateIndependentMof
 from ..kernels import SeparateIndependentMok, SeparateMixedMok
-from ..util import create_logger
-from .dispatch import conditional, sample_conditional
+from ..util import create_logger, Register
+from .dispatch import conditional_dispatcher, sample_conditional_dispatcher
 from .util import sample_mvn, mix_latent_gp
 
 logger = create_logger()
 
-
-@sample_conditional.register(object, MixedKernelSharedMof, SeparateMixedMok, object)
-def _sample_conditional(Xnew, feature, kernel, f, *, full_cov=False,
+@Register(sample_conditional_dispatcher, MixedKernelSharedMof, SeparateMixedMok)
+def _sample_conditional(Xnew, feature, kernel, f, full_cov=False,
                         full_output_cov=False, q_sqrt=None,
                         white=False, num_samples=None):
     """
@@ -27,7 +26,8 @@ def _sample_conditional(Xnew, feature, kernel, f, *, full_cov=False,
     if full_output_cov:
         raise NotImplementedError("full_output_cov not yet implemented")
 
-    ind_conditional = conditional.dispatch(object, SeparateIndependentMof, SeparateIndependentMok, object)
+    ind_conditional = conditional_dispatcher.registered_fn(
+        SeparateIndependentMof, SeparateIndependentMok)
     g_mu, g_var = ind_conditional(Xnew, feature, kernel, f,
                                   white=white, q_sqrt=q_sqrt)  # [..., N, L], [..., N, L]
     g_sample = sample_mvn(g_mu, g_var, "diag", num_samples=num_samples)  # [..., (S), N, L]

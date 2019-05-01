@@ -1,4 +1,4 @@
-from multipledispatch import Dispatcher
+from ..util import Dispatcher
 
-conditional = Dispatcher('conditional')
-sample_conditional = Dispatcher('sample_conditional')
+conditional_dispatcher = Dispatcher('conditional')
+sample_conditional_dispatcher = Dispatcher('sample_conditional')

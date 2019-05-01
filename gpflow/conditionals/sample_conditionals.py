@@ -1,20 +1,34 @@
 import tensorflow as tf
+import numpy as np
+from multipledispatch import dispatch
 
+from .conditionals import conditional
+from .dispatch import sample_conditional_dispatcher
+from .util import sample_mvn
 from ..features import InducingFeature
 from ..kernels import Kernel
-from ..util import create_logger
-from .dispatch import conditional, sample_conditional
-from .util import sample_mvn
+from ..util import create_logger, Register
 
 logger = create_logger()
+dispatch
 
 
-@sample_conditional.register(object, object, Kernel, object)
-@sample_conditional.register(object, InducingFeature, Kernel, object)
+def sample_conditional(Xnew: tf.Tensor,
+                       feature: InducingFeature, kernel: Kernel,
+                       function: tf.Tensor, full_cov=False, full_output_cov=False, q_sqrt=None,
+                       white=False, num_samples=None):
+    sample_conditional_fn = sample_conditional_dispatcher.registered_fn(type(feature), type(kernel))
+    return sample_conditional_fn(Xnew, feature, kernel, function, full_cov, full_output_cov,
+                                 q_sqrt, white, num_samples)
+
+
+@Register(sample_conditional_dispatcher, np.ndarray, Kernel)
+@Register(sample_conditional_dispatcher, tf.Tensor, Kernel)
+@Register(sample_conditional_dispatcher, InducingFeature, Kernel)
 def _sample_conditional(Xnew: tf.Tensor,
                         feature: InducingFeature,
                         kernel: Kernel,
-                        function: tf.Tensor, *,
+                        function: tf.Tensor,
                         full_cov=False,
                         full_output_cov=False,
                         q_sqrt=None,
@@ -42,7 +56,8 @@ def _sample_conditional(Xnew: tf.Tensor,
         # mean: [..., N, P]
         # cov: [..., P, N, N]
         mean_for_sample = tf.linalg.adjoint(mean)  # [..., P, N]
-        samples = sample_mvn(mean_for_sample, cov, 'full', num_samples=num_samples)  # [..., (S), P, N]
+        samples = sample_mvn(mean_for_sample, cov, 'full',
+                             num_samples=num_samples)  # [..., (S), P, N]
         samples = tf.linalg.adjoint(samples)  # [..., (S), P, N]
     else:
         # mean: [..., N, P]

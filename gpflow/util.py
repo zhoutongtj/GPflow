@@ -149,6 +149,7 @@ class Register:
     def __init__(self, dispatch: Dispatcher, type_A, type_B):
         self._key = (type_A, type_B)
         self._ref_dict = dispatch.REF_DICT
+        self.name = dispatch.name
 
 
     def __call__(self, fn):
@@ -162,15 +163,13 @@ class Register:
 
         Raises:
           TypeError: if fn is not a callable.
-          ValueError: if a KL divergence function has already been registered for
-            the given argument classes.
+          ValueError: if a function has already been registered for the given argument classes.
         """
         if not callable(fn):
-            raise TypeError(
-                "fn must be callable, received: %s" % fn)
+            raise TypeError("fn must be callable, received: %s" % fn)
         if self._key in self._ref_dict:
-            raise ValueError("KL(%s || %s) has already been registered to: %s"
-                             % (self._key[0].__name__, self._key[1].__name__,
+            raise ValueError("%s(%s, %s) has already been registered to: %s"
+                             % (self.name, self._key[0].__name__, self._key[1].__name__,
                                 self._ref_dict[self._key]))
         self._ref_dict[self._key] = fn
         return fn
