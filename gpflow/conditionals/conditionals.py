@@ -19,7 +19,7 @@ def conditional(Xnew: tf.Tensor, feature: InducingFeature, kernel: Kernel, funct
     return conditional_fn(Xnew, feature, kernel, function, full_cov, full_output_cov, q_sqrt, white)
 
 
-@Register(conditional_dispatcher, InducingFeature, Kernel)
+@conditional_dispatcher.register(InducingFeature, Kernel)
 def _conditional(Xnew: tf.Tensor,
                  feature: InducingFeature,
                  kernel: Kernel,
@@ -66,8 +66,8 @@ def _conditional(Xnew: tf.Tensor,
     return fmean, expand_independent_outputs(fvar, full_cov, full_output_cov)
 
 
-@Register(conditional_dispatcher, np.ndarray, Kernel)
-@Register(conditional_dispatcher, tf.Tensor, Kernel)
+@conditional_dispatcher.register(np.ndarray, Kernel)
+@conditional_dispatcher.register(tf.Tensor, Kernel)
 def _conditional(
         Xnew: tf.Tensor,
         X: tf.Tensor,

@@ -11,12 +11,12 @@ def Kuf(feature: InducingPoints, kernel: Kernel, Xnew):
     return kuf_fn(feature, kernel, Xnew)
 
 
-@Register(Kuf_dispatcher, InducingPoints, Kernel)
+@Kuf_dispatcher.register(InducingPoints, Kernel)
 def _Kuf(feature: InducingPoints, kernel: Kernel, Xnew: tf.Tensor):
     return kernel(feature.Z, Xnew)
 
 
-@Register(Kuf_dispatcher, Multiscale, RBF)
+@Kuf_dispatcher.register(Multiscale, RBF)
 def _Kuf(feature: Multiscale, kernel: RBF, Xnew):
     Xnew, _ = kernel.slice(Xnew, None)
     Zmu, Zlen = kernel.slice(feature.Z, feature.scales)

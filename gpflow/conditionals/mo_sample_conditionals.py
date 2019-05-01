@@ -8,7 +8,8 @@ from .util import sample_mvn, mix_latent_gp
 
 logger = create_logger()
 
-@Register(sample_conditional_dispatcher, MixedKernelSharedMof, SeparateMixedMok)
+
+@sample_conditional_dispatcher.register(MixedKernelSharedMof, SeparateMixedMok)
 def _sample_conditional(Xnew, feature, kernel, f, full_cov=False,
                         full_output_cov=False, q_sqrt=None,
                         white=False, num_samples=None):

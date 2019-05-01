@@ -22,9 +22,9 @@ def sample_conditional(Xnew: tf.Tensor,
                                  q_sqrt, white, num_samples)
 
 
-@Register(sample_conditional_dispatcher, np.ndarray, Kernel)
-@Register(sample_conditional_dispatcher, tf.Tensor, Kernel)
-@Register(sample_conditional_dispatcher, InducingFeature, Kernel)
+@sample_conditional_dispatcher.register(np.ndarray, Kernel)
+@sample_conditional_dispatcher.register(tf.Tensor, Kernel)
+@sample_conditional_dispatcher.register(InducingFeature, Kernel)
 def _sample_conditional(Xnew: tf.Tensor,
                         feature: InducingFeature,
                         kernel: Kernel,

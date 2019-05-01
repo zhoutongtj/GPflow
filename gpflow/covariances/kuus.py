@@ -11,14 +11,14 @@ def Kuu(feature: InducingPoints, kernel: Kernel, jitter=0.0):
     return kuu_fn(feature, kernel, jitter)
 
 
-@Register(Kuu_dispatcher, InducingPoints, Kernel)
+@Kuu_dispatcher.register(InducingPoints, Kernel)
 def _Kuu(feature: InducingPoints, kernel: Kernel, jitter=0.0):
     Kzz = kernel(feature.Z)
     Kzz += jitter * tf.eye(len(feature), dtype=Kzz.dtype)
     return Kzz
 
 
-@Register(Kuu_dispatcher, Multiscale, RBF)
+@Kuu_dispatcher.register(Multiscale, RBF)
 def _Kuu(feature: Multiscale, kernel: RBF, jitter=0.0):
     Zmu, Zlen = kernel.slice(feature.Z, feature.scales)
     idlengthscale2 = tf.square(kernel.lengthscale + Zlen)

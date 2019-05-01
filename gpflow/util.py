@@ -145,6 +145,14 @@ class Dispatcher:
                     fn = candidate_fn
         return fn
 
+    def register(self, type_A, type_B):
+        register_object = Register(self, type_A, type_B)
+        def _(func):
+            register_object(func)
+            return func
+        return _
+
+
 class Register:
     def __init__(self, dispatch: Dispatcher, type_A, type_B):
         self._key = (type_A, type_B)
@@ -173,3 +181,20 @@ class Register:
                                 self._ref_dict[self._key]))
         self._ref_dict[self._key] = fn
         return fn
+
+if __name__ == '__main__':
+    conditional_dispatcher = Dispatcher('conditional')
+
+    @conditional_dispatcher.register(int, str)
+    def foo(a, b):
+        print(a, b)
+
+    @conditional_dispatcher.register(str, int)
+    def foo2(b, a):
+        pass
+
+    def foot(a, b):
+        foo_fn = conditional_dispatcher.registered_fn(type(a), type(b))
+        return foo_fn(a, b)
+    print(conditional_dispatcher.REF_DICT)
+    foo(1,'s')

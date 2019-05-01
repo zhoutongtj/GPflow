@@ -20,7 +20,7 @@ from ..util import create_logger, default_jitter, default_float, Register
 logger = create_logger()
 
 
-@Register(conditional_dispatcher, SharedIndependentMof, SharedIndependentMok)
+@conditional_dispatcher.register(SharedIndependentMof, SharedIndependentMok)
 def _conditional(Xnew, feature, kernel, f, full_cov=False, full_output_cov=False, q_sqrt=None,
                  white=False):
     """Multioutput conditional for an independent kernel and shared inducing features.
@@ -64,9 +64,9 @@ def _conditional(Xnew, feature, kernel, f, full_cov=False, full_output_cov=False
     return fmean, expand_independent_outputs(fvar, full_cov, full_output_cov)
 
 
-@Register(conditional_dispatcher, SeparateIndependentMof, SeparateIndependentMok)
-@Register(conditional_dispatcher, SharedIndependentMof, SeparateIndependentMok)
-@Register(conditional_dispatcher, SeparateIndependentMof, SharedIndependentMok)
+@conditional_dispatcher.register(SeparateIndependentMof, SeparateIndependentMok)
+@conditional_dispatcher.register(SharedIndependentMof, SeparateIndependentMok)
+@conditional_dispatcher.register(SeparateIndependentMof, SharedIndependentMok)
 def _conditional(Xnew, feature, kernel, f, full_cov=False, full_output_cov=False, q_sqrt=None,
                  white=False):
     """Multi-output GP with independent GP priors.
@@ -115,8 +115,8 @@ def _conditional(Xnew, feature, kernel, f, full_cov=False, full_output_cov=False
     return fmu, expand_independent_outputs(fvar, full_cov, full_output_cov)
 
 
-@Register(conditional_dispatcher, SharedIndependentMof, SeparateMixedMok)
-@Register(conditional_dispatcher, SeparateIndependentMof, SeparateMixedMok)
+@conditional_dispatcher.register(SharedIndependentMof, SeparateMixedMok)
+@conditional_dispatcher.register(SeparateIndependentMof, SeparateMixedMok)
 def _conditional(Xnew, feature, kernel, f, full_cov=False, full_output_cov=False, q_sqrt=None,
                  white=False):
     """Interdomain conditional with independent latents.
@@ -145,7 +145,7 @@ def _conditional(Xnew, feature, kernel, f, full_cov=False, full_output_cov=False
                                                q_sqrt=q_sqrt, white=white)
 
 
-@Register(conditional_dispatcher, InducingPoints, Mok)
+@conditional_dispatcher.register(InducingPoints, Mok)
 def _conditional(Xnew, feature, kernel, f, full_cov=False, full_output_cov=False, q_sqrt=None,
                  white=False):
     """Multi-output GP with fully correlated inducing variables.
@@ -193,8 +193,8 @@ def _conditional(Xnew, feature, kernel, f, full_cov=False, full_output_cov=False
     return fmean, fvar
 
 
-@Register(conditional_dispatcher, MixedKernelSharedMof, SeparateMixedMok)
-@Register(conditional_dispatcher, MixedKernelSeparateMof, SeparateMixedMok)
+@conditional_dispatcher.register(MixedKernelSharedMof, SeparateMixedMok)
+@conditional_dispatcher.register(MixedKernelSeparateMof, SeparateMixedMok)
 def _conditional(Xnew, feature, kernel, f, full_cov=False, full_output_cov=False, q_sqrt=None,
                  white=False):
     """Most efficient routine to project L independent latent gps through a mixing matrix W.
