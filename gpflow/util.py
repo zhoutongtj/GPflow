@@ -164,7 +164,7 @@ class Dispatcher:
 
 class Register:
     def __init__(self, dispatch: Dispatcher, *types):
-        self._key = types
+        self._key_list = self._breakdown_types(types)
         self._ref_dict = dispatch.REF_DICT
         self.name = dispatch.name
 
@@ -183,12 +183,87 @@ class Register:
         """
         if not callable(fn):
             raise TypeError("fn must be callable, received: %s" % fn)
-        if self._key in self._ref_dict:
-            raise ValueError("%s(%s, %s) has already been registered to: %s"
-                             % (self.name, self._key[0].__name__, self._key[1].__name__,
-                                self._ref_dict[self._key]))
-        self._ref_dict[self._key] = fn
+        for key in self._key_list:
+            key = tuple(key)
+            if key in self._ref_dict:
+                raise ValueError("%s(%s, %s) has already been registered to: %s"
+                                 % (self.name, key[0].__name__, key[1].__name__,
+                                    self._ref_dict[key]))
+            self._ref_dict[key] = fn
         return fn
 
+    @staticmethod
+    def _breakdown_types(types) -> List[List]:
+        key_list = [[]]
+        for x in types:
+            if isinstance(x, tuple):
+                key_list = [key + [y] for key in key_list for y in x]
+            else:
+                key_list = [key + [x] for key in key_list]
+        return key_list
+
+if __name__ == '__main__':
+    # conditional_dispatcher = Dispatcher('conditional')
+    #
+    # @conditional_dispatcher.register(int, str, int)
+    # def foo(a, b, c):
+    #     print(a, b, c)
+    #
+    #
+    # @conditional_dispatcher.register(str, int, str)
+    # def foo2(a, b, c):
+    #     pass
+    #
+    #
+    # def foot(a, b, c):
+    #     foo_fn = conditional_dispatcher.registered_fn(type(a), type(b), type(c))
+    #     return foo_fn(a, b, c)
+    #
+    #
+    # print(conditional_dispatcher.REF_DICT)
+    # # foot('1',1,'a')
+    # foot(0, '1', '1')
+
+    #
+    # REF_DICT = {}
+    # REF_DICT[('A0', 'B1', 'C1')] = 'soln_first'
+    # REF_DICT[('A1', 'B2', 'C1')] = 'wrong soln'
+    # REF_DICT[('A1', 'B0', 'C0')] = 'soln_second'
+    #
+    # hierarchy_A = ['A0', 'A1']
+    # hierarchy_B = ['B0', 'B1', 'B2']
+    # hierarchy_C = ['C0', 'C1', 'C2']
+    #
+    #
+    # def search_for_candidate(hierarchies, parent_dist, parent_key, fn=None, dist=None):
+    #     for mro_to_0, parent_0 in enumerate(hierarchies[0]):
+    #         candidate_dist = parent_dist + mro_to_0
+    #         candidate_key = parent_key + [parent_0]
+    #         if len(hierarchies) > 1:
+    #             fn, dist = search_for_candidate(hierarchies[1:], candidate_dist,
+    #                                             candidate_key, fn, dist)
+    #         else:
+    #             # produce candidate
+    #             candidate_fn = REF_DICT.get(tuple(candidate_key), None)
+    #             if candidate_fn is not None:
+    #                 print(candidate_dist, candidate_fn, dist)
+    #                 print(not fn)
+    #                 print((candidate_fn and candidate_dist < dist))
+    #             if not fn or (candidate_fn and candidate_dist < dist):
+    #                 dist = candidate_dist
+    #                 fn = candidate_fn
+    #     return fn, dist
+    #
+    # fn = search_for_candidate([hierarchy_A, hierarchy_B, hierarchy_C], 0, [])
+    # print(fn)
+    a = list(('a', 'b', ('c', 'd'), ('e', 'f')))
+    key_list = [[]]
+    base = [[]] * len(a)
+    for idx, x in enumerate(a):
+        if isinstance(x, tuple):
+            key_list = [key + [j] for key in key_list for j in x]
+        else:
+            key_list = [key+[x] for key in key_list]
+    print(key_list)
 
 
