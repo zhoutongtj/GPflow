@@ -95,6 +95,7 @@ def training_loop(closure: Callable[..., tf.Tensor],
     :param maxiter: Maximum number of
     :return:
     """
+
     def optimization_step():
         with tf.GradientTape() as tape:
             tape.watch(var_list)
@@ -121,7 +122,6 @@ def broadcasting_elementwise(op, a, b):
     flatres = op(tf.reshape(a, [-1, 1]), tf.reshape(b, [1, -1]))
     return tf.reshape(flatres, tf.concat([tf.shape(a), tf.shape(b)], 0))
 
-
 class Dispatcher:
     def __init__(self, name: str):
         self.name = name
@@ -130,35 +130,43 @@ class Dispatcher:
     def __repr__(self):
         return self.name
 
-    def registered_fn(self, type_a, type_b):
-        """Gets the function registered for classes a and b."""
-        hierarchy_a = tf_inspect.getmro(type_a)
-        hierarchy_b = tf_inspect.getmro(type_b)
-        dist_to_children = None
-        fn = None
-        for mro_to_a, parent_a in enumerate(hierarchy_a):
-            for mro_to_b, parent_b in enumerate(hierarchy_b):
-                candidate_dist = mro_to_a + mro_to_b
-                candidate_fn = self.REF_DICT.get((parent_a, parent_b), None)
-                if not fn or (candidate_fn and candidate_dist < dist_to_children):
-                    dist_to_children = candidate_dist
-                    fn = candidate_fn
+    def registered_fn(self, *types):
+        """Gets the function registered for chosen classes."""
+        hierarchies = [tf_inspect.getmro(type_arg) for type_arg in types]
+        fn, _ = self._search_for_candidate(hierarchies, 0, [])
         return fn
 
-    def register(self, type_A, type_B):
-        register_object = Register(self, type_A, type_B)
+    def register(self, *types):
+        register_object = Register(self, *types)
+
         def _(func):
             register_object(func)
             return func
+
         return _
+
+    def _search_for_candidate(self, hierarchies, parent_dist, parent_key, fn=None, dist=None):
+        """Recursive function that finds and selects candidate functions in REF_DICT"""
+        for mro_to_0, parent_0 in enumerate(hierarchies[0]):
+            candidate_dist = parent_dist + mro_to_0
+            candidate_key = parent_key + [parent_0]
+            if len(hierarchies) > 1:
+                fn, dist = self._search_for_candidate(hierarchies[1:], candidate_dist,
+                                                      candidate_key, fn, dist)
+            else:  # produce candidate
+                candidate_fn = self.REF_DICT.get(tuple(candidate_key), None)
+                candidate_exists_and_is_better = candidate_fn and candidate_dist < dist
+                if not fn or candidate_exists_and_is_better:
+                    dist = candidate_dist
+                    fn = candidate_fn
+        return fn, dist
 
 
 class Register:
-    def __init__(self, dispatch: Dispatcher, type_A, type_B):
-        self._key = (type_A, type_B)
+    def __init__(self, dispatch: Dispatcher, *types):
+        self._key = types
         self._ref_dict = dispatch.REF_DICT
         self.name = dispatch.name
-
 
     def __call__(self, fn):
         """Perform the Multioutput Conditional registration.
@@ -182,19 +190,5 @@ class Register:
         self._ref_dict[self._key] = fn
         return fn
 
-if __name__ == '__main__':
-    conditional_dispatcher = Dispatcher('conditional')
 
-    @conditional_dispatcher.register(int, str)
-    def foo(a, b):
-        print(a, b)
 
-    @conditional_dispatcher.register(str, int)
-    def foo2(b, a):
-        pass
-
-    def foot(a, b):
-        foo_fn = conditional_dispatcher.registered_fn(type(a), type(b))
-        return foo_fn(a, b)
-    print(conditional_dispatcher.REF_DICT)
-    foo(1,'s')
