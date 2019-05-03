@@ -188,8 +188,8 @@ class Register:
             raise TypeError("fn must be callable, received: %s" % fn)
         for key in self._key_list:
             if key in self._ref_dict:
-                raise ValueError("%s(%s, %s) has already been registered to: %s"
-                                 % (self.name, key[0].__name__, key[1].__name__,
+                raise ValueError("%s with argument types %s has already been registered to: %s"
+                                 % (self.name, (item.__name__ for item in key),
                                     self._ref_dict[key]))
             self._ref_dict[key] = fn
         return fn
