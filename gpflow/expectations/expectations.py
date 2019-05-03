@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from . import dispatch
+from .dispatch import expectation_dispatcher, quadrature_expectation_dispatcher
 from ..probability_distributions import (DiagonalGaussian, Gaussian,
                                          MarkovGaussian)
 from ..util import create_logger
@@ -55,10 +55,14 @@ def expectation(p, obj1, obj2=None, nghp=None):
     """
     p, obj1, feat1, obj2, feat2 = _init_expectation(p, obj1, obj2)
     try:
-        return dispatch.expectation(p, obj1, feat1, obj2, feat2, nghp=nghp)
+        expectation_fn = expectation_dispatcher.registered_fn(type(p), type(obj1), type(feat1),
+                                                              type(obj2), type(feat2))
+        return expectation_fn(p, obj1, feat1, obj2, feat2, nghp=nghp)
     except NotImplementedError as error:
         logger.debug(error)
-        return dispatch.quadrature_expectation(p, obj1, feat1, obj2, feat2, nghp=nghp)
+        quadrature_expectation_fn = quadrature_expectation_dispatcher.registered_fn(
+            type(p), type(obj1), type(feat1),type(obj2), type(feat2))
+        return quadrature_expectation_fn(p, obj1, feat1, obj2, feat2, nghp=nghp)
 
 
 def quadrature_expectation(p, obj1, obj2=None, nghp=None):
@@ -75,7 +79,9 @@ def quadrature_expectation(p, obj1, obj2=None, nghp=None):
     """
     print(f"2. p={p}, obj1={obj1}, obj2={obj2}")
     p, obj1, feat1, obj2, feat2 = _init_expectation(p, obj1, obj2)
-    return dispatch.quadrature_expectation(p, obj1, feat1, obj2, feat2, nghp=nghp)
+    quadrature_expectation_fn = quadrature_expectation_dispatcher.registered_fn(
+            type(p), type(obj1), type(feat1),type(obj2), type(feat2))
+    return quadrature_expectation_fn(p, obj1, feat1, obj2, feat2, nghp=nghp)
 
 
 def _init_expectation(p, obj1, obj2):

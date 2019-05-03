@@ -1,13 +1,14 @@
 import tensorflow as tf
 
-from . import dispatch
+from .dispatch import expectation_dispatcher
 from .. import kernels
 from ..features import InducingPoints
 from ..probability_distributions import DiagonalGaussian, Gaussian
 from .expectations import expectation
 
 
-@dispatch.expectation.register((Gaussian, DiagonalGaussian), kernels.RBF, InducingPoints, kernels.Linear, InducingPoints)
+@expectation_dispatcher.register((Gaussian, DiagonalGaussian), kernels.RBF, InducingPoints,
+                                 kernels.Linear, InducingPoints)
 def _E(p, rbf_kern, feat1, lin_kern, feat2, nghp=None):
     """
     Compute the expectation:
@@ -68,7 +69,8 @@ def _E(p, rbf_kern, feat1, lin_kern, feat2, nghp=None):
     return cross_eKzxKxz
 
 
-@dispatch.expectation.register((Gaussian, DiagonalGaussian), kernels.Linear, InducingPoints, kernels.RBF, InducingPoints)
+@expectation_dispatcher.register((Gaussian, DiagonalGaussian), kernels.Linear, InducingPoints,
+                                 kernels.RBF, InducingPoints)
 def _E(p, lin_kern, feat1, rbf_kern, feat2, nghp=None):
     """
     Compute the expectation:

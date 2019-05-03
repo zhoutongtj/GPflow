@@ -2,7 +2,7 @@ from functools import reduce
 
 import tensorflow as tf
 
-from . import dispatch
+from .dispatch import expectation_dispatcher
 from .. import kernels
 from ..features import InducingPoints
 from ..probability_distributions import DiagonalGaussian
@@ -10,7 +10,7 @@ from ..util import NoneType
 from .expectations import expectation
 
 
-@dispatch.expectation.register(DiagonalGaussian, kernels.Product, NoneType, NoneType, NoneType)
+@expectation_dispatcher.register(DiagonalGaussian, kernels.Product, NoneType, NoneType, NoneType)
 def _E(p, kernel, _, __, ___, nghp=None):
     """
     Compute the expectation:
@@ -28,7 +28,8 @@ def _E(p, kernel, _, __, ___, nghp=None):
     return reduce(tf.multiply, exps)
 
 
-@dispatch.expectation.register(DiagonalGaussian, kernels.Product, InducingPoints, NoneType, NoneType)
+@expectation_dispatcher.register(DiagonalGaussian, kernels.Product, InducingPoints,
+                                 NoneType, NoneType)
 def _E(p, kernel, feature, __, ___, nghp=None):
     """
     Compute the expectation:
@@ -46,7 +47,8 @@ def _E(p, kernel, feature, __, ___, nghp=None):
     return reduce(tf.multiply, exps)
 
 
-@dispatch.expectation.register(DiagonalGaussian, kernels.Product, InducingPoints, kernels.Product, InducingPoints)
+@expectation_dispatcher.register(DiagonalGaussian, kernels.Product, InducingPoints,
+                                 kernels.Product, InducingPoints)
 def _E(p, kern1, feat1, kern2, feat2, nghp=None):
     """
     Compute the expectation:

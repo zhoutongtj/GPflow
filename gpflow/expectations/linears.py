@@ -1,16 +1,16 @@
 import tensorflow as tf
 
-from . import dispatch
+from .dispatch import expectation_dispatcher
+from .expectations import expectation
 from .. import kernels
 from .. import mean_functions as mfn
 from ..features import InducingPoints
 from ..probability_distributions import (DiagonalGaussian, Gaussian,
                                          MarkovGaussian)
 from ..util import NoneType
-from .expectations import expectation
 
 
-@dispatch.expectation.register(Gaussian, kernels.Linear, NoneType, NoneType, NoneType)
+@expectation_dispatcher.register(Gaussian, kernels.Linear, NoneType, NoneType, NoneType)
 def _E(p, kernel, _, __, ___, nghp=None):
     """
     Compute the expectation:
@@ -26,7 +26,7 @@ def _E(p, kernel, _, __, ___, nghp=None):
     return tf.reduce_sum(kernel.variance * (tf.linalg.diag_part(Xcov) + Xmu ** 2), 1)
 
 
-@dispatch.expectation.register(Gaussian, kernels.Linear, InducingPoints, NoneType, NoneType)
+@expectation_dispatcher.register(Gaussian, kernels.Linear, InducingPoints, NoneType, NoneType)
 def _E(p, kernel, feature, _, __, nghp=None):
     """
     Compute the expectation:
@@ -41,8 +41,7 @@ def _E(p, kernel, feature, _, __, nghp=None):
     return tf.linalg.matmul(Xmu, Z * kernel.variance, transpose_b=True)
 
 
-@dispatch.expectation.register(
-        Gaussian, kernels.Linear, InducingPoints, mfn.Identity, NoneType)
+@expectation_dispatcher.register(Gaussian, kernels.Linear, InducingPoints, mfn.Identity, NoneType)
 def _E(p, kernel, feature, mean, _, nghp=None):
     """
     Compute the expectation:
@@ -59,8 +58,8 @@ def _E(p, kernel, feature, mean, _, nghp=None):
     return tf.linalg.matmul(tiled_Z, Xcov + (Xmu[..., None] * Xmu[:, None, :]))
 
 
-@dispatch.expectation.register(
-        MarkovGaussian, kernels.Linear, InducingPoints, mfn.Identity, NoneType)
+@expectation_dispatcher.register(MarkovGaussian, kernels.Linear, InducingPoints,
+                                 mfn.Identity, NoneType)
 def _E(p, kernel, feature, mean, _, nghp=None):
     """
     Compute the expectation:
@@ -79,9 +78,10 @@ def _E(p, kernel, feature, mean, _, nghp=None):
     return tf.linalg.matmul(tiled_Z, eXX)
 
 
-@dispatch.expectation.register(
-        (Gaussian, DiagonalGaussian),
-        kernels.Linear, InducingPoints, kernels.Linear, InducingPoints)
+@expectation_dispatcher.register(Gaussian, kernels.Linear, InducingPoints,
+                                 kernels.Linear, InducingPoints)
+@expectation_dispatcher.register(DiagonalGaussian, kernels.Linear, InducingPoints,
+                                 kernels.Linear, InducingPoints)
 def _E(p, kern1, feat1, kern2, feat2, nghp=None):
     """
     Compute the expectation:

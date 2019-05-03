@@ -1,5 +1,5 @@
-from multipledispatch import Dispatcher
+from gpflow.util import Dispatcher
 
-expectation = Dispatcher('expectation')
-quadrature_expectation = Dispatcher('quadrature_expectation')
-variational_expectation = Dispatcher('variational_expectation')
+expectation_dispatcher = Dispatcher('expectation')
+quadrature_expectation_dispatcher = Dispatcher('quadrature_expectation')
+variational_expectation_dispatcher = Dispatcher('variational_expectation')

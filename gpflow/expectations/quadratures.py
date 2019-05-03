@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow as tf
 
-from . import dispatch
+from .dispatch import quadrature_expectation_dispatcher
 from .. import kernels
 from .. import mean_functions as mfn
 from ..covariances import Kuf
@@ -13,7 +13,6 @@ from ..util import NoneType, create_logger
 from .expectations import quadrature_expectation
 
 logger = create_logger()
-register = dispatch.quadrature_expectation.register
 
 
 def get_eval_func(obj, feature, slice=None):
@@ -36,8 +35,7 @@ def get_eval_func(obj, feature, slice=None):
     raise NotImplementedError()
 
 
-@dispatch.quadrature_expectation.register(
-    (Gaussian, DiagonalGaussian),
+@quadrature_expectation_dispatcher.register((Gaussian, DiagonalGaussian),
     object, (InducingFeature, NoneType),
     object, (InducingFeature, NoneType))
 def _quadrature_expectation(p, obj1, feature1, obj2, feature2, nghp=None):
@@ -77,7 +75,7 @@ def _quadrature_expectation(p, obj1, feature1, obj2, feature2, nghp=None):
     return mvnquad(eval_func, p.mu, cov, nghp)
 
 
-@dispatch.quadrature_expectation.register(
+@quadrature_expectation_dispatcher.register(
     MarkovGaussian,
     object, (InducingFeature, NoneType),
     object, (InducingFeature, NoneType))

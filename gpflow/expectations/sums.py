@@ -3,7 +3,7 @@ from functools import reduce
 
 import tensorflow as tf
 
-from . import dispatch
+from .dispatch import expectation_dispatcher
 from .. import kernels
 from .. import mean_functions as mfn
 from ..features import InducingPoints
@@ -13,7 +13,7 @@ from ..util import NoneType
 from .expectations import expectation
 
 
-@dispatch.expectation.register(Gaussian, kernels.Sum, NoneType, NoneType, NoneType)
+@expectation_dispatcher.register(Gaussian, kernels.Sum, NoneType, NoneType, NoneType)
 def _E(p, kernel, _, __, ___, nghp=None):
     """
     Compute the expectation:
@@ -26,7 +26,7 @@ def _E(p, kernel, _, __, ___, nghp=None):
     return reduce(tf.add, exps)
 
 
-@dispatch.expectation.register(Gaussian, kernels.Sum, InducingPoints, NoneType, NoneType)
+@expectation_dispatcher.register(Gaussian, kernels.Sum, InducingPoints, NoneType, NoneType)
 def _E(p, kernel, feature, _, __, nghp=None):
     """
     Compute the expectation:
@@ -39,7 +39,7 @@ def _E(p, kernel, feature, _, __, nghp=None):
     return reduce(tf.add, exps)
 
 
-@dispatch.expectation.register(Gaussian,
+@expectation_dispatcher.register(Gaussian,
           (mfn.Linear, mfn.Identity, mfn.Constant),
           NoneType, kernels.Sum, InducingPoints)
 def _E(p, mean, _, kernel, feature, nghp=None):
@@ -54,7 +54,8 @@ def _E(p, mean, _, kernel, feature, nghp=None):
     return reduce(tf.add, exps)
 
 
-@dispatch.expectation.register(MarkovGaussian, mfn.Identity, NoneType, kernels.Sum, InducingPoints)
+@expectation_dispatcher.register(MarkovGaussian, mfn.Identity, NoneType,
+                                 kernels.Sum, InducingPoints)
 def _E(p, mean, _, kernel, feature, nghp=None):
     """
     Compute the expectation:
@@ -67,7 +68,8 @@ def _E(p, mean, _, kernel, feature, nghp=None):
     return reduce(tf.add, exps)
 
 
-@dispatch.expectation.register((Gaussian, DiagonalGaussian), kernels.Sum, InducingPoints, kernels.Sum, InducingPoints)
+@expectation_dispatcher.register((Gaussian, DiagonalGaussian), kernels.Sum, InducingPoints,
+                                 kernels.Sum, InducingPoints)
 def _E(p, kern1, feat1, kern2, feat2, nghp=None):
     """
     Compute the expectation:

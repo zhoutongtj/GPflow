@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-from . import dispatch
+from .dispatch import expectation_dispatcher
 from .. import kernels
 from .. import mean_functions as mfn
 from ..features import InducingPoints
@@ -10,7 +10,7 @@ from ..util import NoneType, default_float
 from .expectations import expectation
 
 
-@dispatch.expectation.register(Gaussian, kernels.RBF, NoneType, NoneType, NoneType)
+@expectation_dispatcher.register(Gaussian, kernels.RBF, NoneType, NoneType, NoneType)
 def _E(p, kernel, _, __, ___, nghp=None):
     """
     Compute the expectation:
@@ -22,7 +22,7 @@ def _E(p, kernel, _, __, ___, nghp=None):
     return kernel(p.mu, full=False)
 
 
-@dispatch.expectation.register(Gaussian, kernels.RBF, InducingPoints, NoneType, NoneType)
+@expectation_dispatcher.register(Gaussian, kernels.RBF, InducingPoints, NoneType, NoneType)
 def _E(p, kernel, feature, _, __, nghp=None):
     """
     Compute the expectation:
@@ -56,7 +56,7 @@ def _E(p, kernel, feature, _, __, nghp=None):
     return kernel.variance * (determinants[:, None] * exponent_mahalanobis)
 
 
-@dispatch.expectation.register(Gaussian, mfn.Identity, NoneType, kernels.RBF, InducingPoints)
+@expectation_dispatcher.register(Gaussian, mfn.Identity, NoneType, kernels.RBF, InducingPoints)
 def _E(p, mean, _, kernel, feature, nghp=None):
     """
     Compute the expectation:
@@ -92,7 +92,7 @@ def _E(p, mean, _, kernel, feature, nghp=None):
                             exponent_mahalanobis)[:, None, :] * non_exponent_term
 
 
-@dispatch.expectation.register(MarkovGaussian, mfn.Identity, NoneType, kernels.RBF, InducingPoints)
+@expectation_dispatcher.register(MarkovGaussian, mfn.Identity, NoneType, kernels.RBF, InducingPoints)
 def _E(p, mean, _, kernel, feature, nghp=None):
     """
     Compute the expectation:
@@ -128,7 +128,7 @@ def _E(p, mean, _, kernel, feature, nghp=None):
                             exponent_mahalanobis)[:, None, :] * non_exponent_term
 
 
-@dispatch.expectation.register((Gaussian, DiagonalGaussian), kernels.RBF, InducingPoints,
+@expectation_dispatcher.register((Gaussian, DiagonalGaussian), kernels.RBF, InducingPoints,
                                kernels.RBF, InducingPoints)
 def _E(p, kern1, feat1, kern2, feat2, nghp=None):
     """

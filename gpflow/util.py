@@ -133,8 +133,11 @@ class Dispatcher:
 
     def registered_fn(self, *types):
         """Gets the function registered for chosen classes."""
-        hierarchies = [tf_inspect.getmro(type_arg) for type_arg in types]
+        hierarchies = [tf_inspect.getmro(type_arg) if type_arg is not NoneType
+                       else (NoneType, object) for type_arg in types]
         fn, _ = self._search_for_candidate(hierarchies, 0, [])
+        if fn is None:
+            raise (NotImplementedError)
         return fn
 
     def register(self, *types):
@@ -156,7 +159,7 @@ class Dispatcher:
                                                       candidate_key, fn, dist)
             else:  # produce candidate
                 candidate_fn = self.REF_DICT.get(tuple(candidate_key), None)
-                if not fn or (candidate_fn and candidate_dist < dist):
+                if fn is None or (candidate_fn and candidate_dist < dist):
                     dist = candidate_dist
                     fn = candidate_fn
         return fn, dist
