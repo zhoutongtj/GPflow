@@ -10,7 +10,6 @@ from ..kernels import Kernel
 from ..util import create_logger, Register
 
 logger = create_logger()
-dispatch
 
 
 def sample_conditional(Xnew: tf.Tensor,
@@ -22,9 +21,7 @@ def sample_conditional(Xnew: tf.Tensor,
                                  q_sqrt, white, num_samples)
 
 
-@sample_conditional_dispatcher.register(np.ndarray, Kernel)
-@sample_conditional_dispatcher.register(tf.Tensor, Kernel)
-@sample_conditional_dispatcher.register(InducingFeature, Kernel)
+@sample_conditional_dispatcher.register((object, InducingFeature), Kernel)
 def _sample_conditional(Xnew: tf.Tensor,
                         feature: InducingFeature,
                         kernel: Kernel,

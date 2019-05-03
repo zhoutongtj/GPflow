@@ -66,8 +66,7 @@ def _conditional(Xnew: tf.Tensor,
     return fmean, expand_independent_outputs(fvar, full_cov, full_output_cov)
 
 
-@conditional_dispatcher.register(np.ndarray, Kernel)
-@conditional_dispatcher.register(tf.Tensor, Kernel)
+@conditional_dispatcher.register(object, Kernel)
 def _conditional(
         Xnew: tf.Tensor,
         X: tf.Tensor,

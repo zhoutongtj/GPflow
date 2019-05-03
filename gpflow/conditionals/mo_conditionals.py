@@ -103,7 +103,8 @@ def _conditional(Xnew, feature, kernel, f, full_cov=False, full_output_cov=False
     rmu, rvar = tf.map_fn(single_gp_conditional,
                           (Kmms, Kmns, Knns, fs, q_sqrts),
                           (
-                          default_float(), default_float()))  # [P, N, 1], [P, 1, N, N] or [P, N, 1]
+                              default_float(),
+                              default_float()))  # [P, N, 1], [P, 1, N, N] or [P, N, 1]
 
     fmu = rollaxis_left(rmu[..., 0], 1)  # [N, P]
 
@@ -115,9 +116,8 @@ def _conditional(Xnew, feature, kernel, f, full_cov=False, full_output_cov=False
     return fmu, expand_independent_outputs(fvar, full_cov, full_output_cov)
 
 
-@conditional_dispatcher.register(SharedIndependentMof, SeparateMixedMok)
-@conditional_dispatcher.register(SeparateIndependentMof, SeparateMixedMok)
-def _conditional(Xnew, feature, kernel, f, full_cov=False, full_output_cov=False, q_sqrt=None,
+@conditional_dispatcher.register((SharedIndependentMof, SeparateIndependentMof), SeparateMixedMok)
+def _conditional(Xnew, feature, kernel, f, *, full_cov=False, full_output_cov=False, q_sqrt=None,
                  white=False):
     """Interdomain conditional with independent latents.
     In this case the number of latent GPs (L) will be different than the number of outputs (P)
@@ -193,9 +193,8 @@ def _conditional(Xnew, feature, kernel, f, full_cov=False, full_output_cov=False
     return fmean, fvar
 
 
-@conditional_dispatcher.register(MixedKernelSharedMof, SeparateMixedMok)
-@conditional_dispatcher.register(MixedKernelSeparateMof, SeparateMixedMok)
-def _conditional(Xnew, feature, kernel, f, full_cov=False, full_output_cov=False, q_sqrt=None,
+@conditional_dispatcher.register((MixedKernelSharedMof, MixedKernelSeparateMof), SeparateMixedMok)
+def _conditional(Xnew, feature, kernel, f, *, full_cov=False, full_output_cov=False, q_sqrt=None,
                  white=False):
     """Most efficient routine to project L independent latent gps through a mixing matrix W.
     The mixing matrix is a member of the `SeparateMixedMok` and has shape [P, L].

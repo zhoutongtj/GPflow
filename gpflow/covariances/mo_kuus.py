@@ -37,8 +37,8 @@ def _Kuu(feature: SharedIndependentMof, kernel: SharedIndependentMok, jitter=0.0
     jittermat = tf.eye(len(feature), dtype=Kmm.dtype) * jitter
     return Kmm + jittermat
 
-@Kuu_dispatcher.register(SharedIndependentMof, SeparateIndependentMok)
-@Kuu_dispatcher.register(SharedIndependentMof, SeparateMixedMok)
+
+@Kuu_dispatcher.register(SharedIndependentMof, (SeparateIndependentMok, SeparateMixedMok))
 def _Kuu(feature: SharedIndependentMof,
          kernel: Union[SeparateIndependentMok, SeparateMixedMok], jitter=0.0):
     debug_kuu(feature, kernel, jitter)
@@ -54,10 +54,10 @@ def _Kuu(feature: SeparateIndependentMof, kernel: SharedIndependentMok, jitter=0
     jittermat = tf.eye(len(feature), dtype=Kmm.dtype)[None, :, :] * jitter
     return Kmm + jittermat
 
-@Kuu_dispatcher.register(SeparateIndependentMof, SeparateIndependentMok)
-@Kuu_dispatcher.register(SeparateIndependentMof, SeparateMixedMok)
-def _Kuu(feature: SeparateIndependentMof, kernel: Union[SeparateIndependentMok, SeparateMixedMok],
-         jitter=0.0):
+
+@Kuu_dispatcher.register(SeparateIndependentMof, (SeparateIndependentMok, SeparateMixedMok))
+def _Kuu(feature: SeparateIndependentMof,
+         kernel: Union[SeparateIndependentMok, SeparateMixedMok], jitter=0.0):
     debug_kuu(feature, kernel, jitter)
     Kmms = [Kuu(f, k) for f, k in zip(feature.features, kernel.kernels)]
     Kmm = tf.stack(Kmms, axis=0)  # [L, M, M]

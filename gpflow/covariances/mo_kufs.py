@@ -63,8 +63,7 @@ def _Kuf(feature: SeparateIndependentMof,
     return tf.stack(Kufs, axis=0)  # [L, M, N]
 
 
-@Kuf_dispatcher.register(SeparateIndependentMof, SeparateMixedMok)
-@Kuf_dispatcher.register(SharedIndependentMof, SeparateMixedMok)
+@Kuf_dispatcher.register((SeparateIndependentMof, SharedIndependentMof), SeparateMixedMok)
 def _Kuf(feature: Union[SeparateIndependentMof, SharedIndependentMof],
          kernel: SeparateMixedMok,
          Xnew: tf.Tensor):
