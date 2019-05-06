@@ -1,27 +1,31 @@
 # flake8: ignore=F811
 # noqa: ignore=F811
-# flake8: F811
-# noqa: F811
 
 import tensorflow as tf
 
-from .dispatch import conditional_dispatcher
-from .util import (base_conditional, expand_independent_outputs,
-                   fully_correlated_conditional,
-                   independent_interdomain_conditional, mix_latent_gp,
-                   rollaxis_left)
+from typing import Union
+
+from .dispatch import conditional_dispatch
+from .util import (base_conditional, expand_independent_outputs, fully_correlated_conditional,
+                   independent_interdomain_conditional, mix_latent_gp, rollaxis_left)
 from .. import covariances
 from ..features import (InducingPoints, MixedKernelSharedMof, MixedKernelSeparateMof,
                         SeparateIndependentMof, SharedIndependentMof)
-from ..kernels import (Combination, Mok, SeparateIndependentMok,
-                       SeparateMixedMok, SharedIndependentMok)
+from ..kernels import (Combination, Mok, SeparateIndependentMok, SeparateMixedMok,
+                       SharedIndependentMok)
 from ..util import create_logger, default_jitter, default_float, Register
 
 logger = create_logger()
 
 
-@conditional_dispatcher.register(SharedIndependentMof, SharedIndependentMok)
-def _conditional(Xnew, feature, kernel, f, full_cov=False, full_output_cov=False, q_sqrt=None,
+@conditional_dispatch.exclusive  # noqa: F811
+def _conditional(Xnew: tf.Tensor,
+                 feature: SharedIndependentMof,
+                 kernel: SharedIndependentMok,
+                 f: tf.Tensor,
+                 full_cov=False,
+                 full_output_cov=False,
+                 q_sqrt=None,
                  white=False):
     """Multioutput conditional for an independent kernel and shared inducing features.
     Same behaviour as conditional with non-multioutput kernels.
@@ -58,16 +62,24 @@ def _conditional(Xnew, feature, kernel, f, full_cov=False, full_output_cov=False
     Knn = kernel(Xnew, full=full_cov, full_output_cov=False)
     Knn = Knn[0, ...] if full_cov else Knn[..., 0]  # [N, N] or [N]
 
-    fmean, fvar = base_conditional(
-        Kmn, Kmm, Knn, f, full_cov=full_cov, q_sqrt=q_sqrt,
-        white=white)  # [N, P],  [P, N, N] or [N, P]
+    fmean, fvar = base_conditional(Kmn, Kmm, Knn, f, full_cov=full_cov, q_sqrt=q_sqrt,
+                                   white=white)  # [N, P],  [P, N, N] or [N, P]
     return fmean, expand_independent_outputs(fvar, full_cov, full_output_cov)
 
 
-@conditional_dispatcher.register(SeparateIndependentMof, SeparateIndependentMok)
-@conditional_dispatcher.register(SharedIndependentMof, SeparateIndependentMok)
-@conditional_dispatcher.register(SeparateIndependentMof, SharedIndependentMok)
-def _conditional(Xnew, feature, kernel, f, full_cov=False, full_output_cov=False, q_sqrt=None,
+exclusive_register = conditional_dispatch.exclusive_register
+
+
+@exclusive_register(feature=SeparateIndependentMof, kernel=SeparateIndependentMok)  # noqa: F811
+@exclusive_register(feature=SharedIndependentMof, kernel=SeparateIndependentMok)
+@exclusive_register(feature=SeparateIndependentMof, kernel=SharedIndependentMok)
+def _conditional(Xnew: tf.Tensor,
+                 feature,
+                 kernel,
+                 f,
+                 full_cov=False,
+                 full_output_cov=False,
+                 q_sqrt=None,
                  white=False):
     """Multi-output GP with independent GP priors.
     Number of latent processes equals the number of outputs (L = P).
@@ -89,8 +101,8 @@ def _conditional(Xnew, feature, kernel, f, full_cov=False, full_output_cov=False
     # Following are: [P, M, M]  -  [P, M, N]  -  [P, N](x N)
     Kmms = covariances.Kuu(feature, kernel, jitter=default_jitter())  # [P, M, M]
     Kmns = covariances.Kuf(feature, kernel, Xnew)  # [P, M, N]
-    kernels = kernel.kernels if isinstance(kernel, Combination) else [kernel.kernel] * len(
-        feature.features)
+    kernels = kernel.kernels if isinstance(kernel,
+                                           Combination) else [kernel.kernel] * len(feature.features)
     Knns = tf.stack([k.K(Xnew) if full_cov else k.K_diag(Xnew) for k in kernels], axis=0)
     fs = tf.transpose(f)[:, :, None]  # [P, M, 1]
     # [P, 1, M, M]  or  [P, M, 1]
@@ -100,11 +112,10 @@ def _conditional(Xnew, feature, kernel, f, full_cov=False, full_output_cov=False
         Kmm, Kmn, Knn, f, q_sqrt = t
         return base_conditional(Kmn, Kmm, Knn, f, full_cov=full_cov, q_sqrt=q_sqrt, white=white)
 
-    rmu, rvar = tf.map_fn(single_gp_conditional,
-                          (Kmms, Kmns, Knns, fs, q_sqrts),
-                          (
-                              default_float(),
-                              default_float()))  # [P, N, 1], [P, 1, N, N] or [P, N, 1]
+    rmu, rvar = tf.map_fn(
+        single_gp_conditional,
+        (Kmms, Kmns, Knns, fs, q_sqrts),
+        (default_float(), default_float()))  # [P, N, 1], [P, 1, N, N] or [P, N, 1]
 
     fmu = rollaxis_left(rmu[..., 0], 1)  # [N, P]
 
@@ -116,8 +127,15 @@ def _conditional(Xnew, feature, kernel, f, full_cov=False, full_output_cov=False
     return fmu, expand_independent_outputs(fvar, full_cov, full_output_cov)
 
 
-@conditional_dispatcher.register((SharedIndependentMof, SeparateIndependentMof), SeparateMixedMok)
-def _conditional(Xnew, feature, kernel, f, *, full_cov=False, full_output_cov=False, q_sqrt=None,
+@conditional_dispatch.exclusive  # noqa: F811
+def _conditional(Xnew: tf.Tensor,
+                 feature: Union[SharedIndependentMof, SeparateIndependentMof],
+                 kernel: SeparateMixedMok,
+                 f,
+                 *,
+                 full_cov=False,
+                 full_output_cov=False,
+                 q_sqrt=None,
                  white=False):
     """Interdomain conditional with independent latents.
     In this case the number of latent GPs (L) will be different than the number of outputs (P)
@@ -140,13 +158,24 @@ def _conditional(Xnew, feature, kernel, f, *, full_cov=False, full_output_cov=Fa
     Knn = kernel(Xnew, full=full_cov,
                  full_output_cov=full_output_cov)  # [N, P](x N)x P  or  [N, P](x P)
 
-    return independent_interdomain_conditional(Kmn, Kmm, Knn, f, full_cov=full_cov,
+    return independent_interdomain_conditional(Kmn,
+                                               Kmm,
+                                               Knn,
+                                               f,
+                                               full_cov=full_cov,
                                                full_output_cov=full_output_cov,
-                                               q_sqrt=q_sqrt, white=white)
+                                               q_sqrt=q_sqrt,
+                                               white=white)
 
 
-@conditional_dispatcher.register(InducingPoints, Mok)
-def _conditional(Xnew, feature, kernel, f, full_cov=False, full_output_cov=False, q_sqrt=None,
+@conditional_dispatch.exclusive  # noqa: F811
+def _conditional(Xnew: tf.Tensor,
+                 feature: InducingPoints,
+                 kernel: Mok,
+                 f,
+                 full_cov=False,
+                 full_output_cov=False,
+                 q_sqrt=None,
                  white=False):
     """Multi-output GP with fully correlated inducing variables.
     The inducing variables are shaped in the same way as evaluations of K, to allow a default
@@ -180,21 +209,38 @@ def _conditional(Xnew, feature, kernel, f, full_cov=False, full_output_cov=False
 
     if full_cov == full_output_cov:
         Kmn = tf.reshape(Kmn, (M * L, N * K))
-        Knn = tf.reshape(Knn, (N * K, N * K)) if full_cov else tf.reshape(Knn, (N * K,))
-        fmean, fvar = base_conditional(Kmn, Kmm, Knn, f, full_cov=full_cov, q_sqrt=q_sqrt,
+        Knn = tf.reshape(Knn, (N * K, N * K)) if full_cov else tf.reshape(Knn, (N * K, ))
+        fmean, fvar = base_conditional(Kmn,
+                                       Kmm,
+                                       Knn,
+                                       f,
+                                       full_cov=full_cov,
+                                       q_sqrt=q_sqrt,
                                        white=white)  # [K, 1], [1, K](x NK)
         fmean = tf.reshape(fmean, (N, K))
         fvar = tf.reshape(fvar, (N, K, N, K) if full_cov else (N, K))
     else:
         Kmn = tf.reshape(Kmn, (M * L, N, K))
-        fmean, fvar = fully_correlated_conditional(Kmn, Kmm, Knn, f, full_cov=full_cov,
-                                                   full_output_cov=full_output_cov, q_sqrt=q_sqrt,
+        fmean, fvar = fully_correlated_conditional(Kmn,
+                                                   Kmm,
+                                                   Knn,
+                                                   f,
+                                                   full_cov=full_cov,
+                                                   full_output_cov=full_output_cov,
+                                                   q_sqrt=q_sqrt,
                                                    white=white)
     return fmean, fvar
 
 
-@conditional_dispatcher.register((MixedKernelSharedMof, MixedKernelSeparateMof), SeparateMixedMok)
-def _conditional(Xnew, feature, kernel, f, *, full_cov=False, full_output_cov=False, q_sqrt=None,
+@conditional_dispatch.exclusive  # noqa: F811
+def _conditional(Xnew: tf.Tensor,
+                 feature: Union[MixedKernelSharedMof, MixedKernelSeparateMof],
+                 kernel: SeparateMixedMok,
+                 f,
+                 *,
+                 full_cov=False,
+                 full_output_cov=False,
+                 q_sqrt=None,
                  white=False):
     """Most efficient routine to project L independent latent gps through a mixing matrix W.
     The mixing matrix is a member of the `SeparateMixedMok` and has shape [P, L].
@@ -211,8 +257,13 @@ def _conditional(Xnew, feature, kernel, f, *, full_cov=False, full_output_cov=Fa
     """
 
     logger.debug("conditional: (MixedKernelSharedMof, MixedKernelSeparateMof), SeparateMixedMok")
-    ind_conditional = conditional_dispatcher.registered_fn(
-        SeparateIndependentMof, SeparateIndependentMok)
-    gmu, gvar = ind_conditional(Xnew, feature, kernel, f, full_cov=full_cov, q_sqrt=q_sqrt,
-                                full_output_cov=False, white=white)  # [N, L], [L, N, N] or [N, L]
+    cb = conditional_dispatch.registered_function(SeparateIndependentMof, SeparateIndependentMok)
+    gmu, gvar = cb(Xnew,
+                   feature,
+                   kernel,
+                   f,
+                   full_cov=full_cov,
+                   q_sqrt=q_sqrt,
+                   full_output_cov=False,
+                   white=white)  # [N, L], [L, N, N] or [N, L]
     return mix_latent_gp(kernel.W, gmu, gvar, full_cov, full_output_cov)

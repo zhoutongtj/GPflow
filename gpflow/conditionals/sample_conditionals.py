@@ -1,29 +1,19 @@
+from typing import TypeVar
 import tensorflow as tf
-import numpy as np
-from multipledispatch import dispatch
 
-from .conditionals import conditional
-from .dispatch import sample_conditional_dispatcher
+from .dispatch import sample_conditional_dispatch, conditional
 from .util import sample_mvn
 from ..features import InducingFeature
 from ..kernels import Kernel
-from ..util import create_logger, Register
+from ..util import create_logger
+
 
 logger = create_logger()
 
 
-def sample_conditional(Xnew: tf.Tensor,
-                       feature: InducingFeature, kernel: Kernel,
-                       function: tf.Tensor, full_cov=False, full_output_cov=False, q_sqrt=None,
-                       white=False, num_samples=None):
-    sample_conditional_fn = sample_conditional_dispatcher.registered_fn(type(feature), type(kernel))
-    return sample_conditional_fn(Xnew, feature, kernel, function, full_cov, full_output_cov,
-                                 q_sqrt, white, num_samples)
-
-
-@sample_conditional_dispatcher.register((object, InducingFeature), Kernel)
+@sample_conditional_dispatch.exclusive
 def _sample_conditional(Xnew: tf.Tensor,
-                        feature: InducingFeature,
+                        feature: TypeVar('feature', object, InducingFeature),
                         kernel: Kernel,
                         function: tf.Tensor,
                         full_cov=False,
@@ -46,9 +36,14 @@ def _sample_conditional(Xnew: tf.Tensor,
         msg = "The combination of both `full_cov` and `full_output_cov` is not permitted."
         raise NotImplementedError(msg)
 
-    mean, cov = conditional(Xnew, feature, kernel, function,
-                            q_sqrt=q_sqrt, white=white,
-                            full_cov=full_cov, full_output_cov=full_output_cov)
+    mean, cov = conditional(Xnew,
+                            feature,
+                            kernel,
+                            function,
+                            q_sqrt=q_sqrt,
+                            white=white,
+                            full_cov=full_cov,
+                            full_output_cov=full_output_cov)
     if full_cov:
         # mean: [..., N, P]
         # cov: [..., P, N, N]

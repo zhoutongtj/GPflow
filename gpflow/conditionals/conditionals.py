@@ -1,30 +1,29 @@
-# noqa: F811
+from typing import TypeVar
 
-import tensorflow as tf
-import numpy as np
-
-from .dispatch import conditional_dispatcher
+from .dispatch import conditional_dispatch
 from .util import base_conditional, expand_independent_outputs
 from ..covariances import Kuf, Kuu
 from ..features import InducingFeature
-from ..kernels import Kernel
-from ..util import create_logger, default_jitter, default_jitter_eye, Register
+from ..kernels import Kernel, Sum, Product, Combination
+from .. import kernels
+from ..util import create_logger, default_jitter, default_jitter_eye
+from ..types import Tensor
 
 logger = create_logger()
 
 
-def conditional(Xnew: tf.Tensor, feature: InducingFeature, kernel: Kernel, function: tf.Tensor,
-                full_cov=False, full_output_cov=False, q_sqrt=None, white=False):
-    conditional_fn = conditional_dispatcher.registered_fn(type(feature), type(kernel))
-    return conditional_fn(Xnew, feature, kernel, function, full_cov, full_output_cov, q_sqrt, white)
+KernelType = TypeVar("KernelType", Kernel, Product, Sum, Combination)
 
 
-@conditional_dispatcher.register(InducingFeature, Kernel)
-def _conditional(Xnew: tf.Tensor,
+@conditional_dispatch.exclusive  # noqa: F811
+def _conditional(Xnew: Tensor,
                  feature: InducingFeature,
-                 kernel: Kernel,
-                 function: tf.Tensor,
-                 full_cov=False, full_output_cov=False, q_sqrt=None, white=False):
+                 kernel: KernelType,
+                 function: Tensor,
+                 full_cov=False,
+                 full_output_cov=False,
+                 q_sqrt=None,
+                 white=False):
     """
     Single-output GP conditional.
 
@@ -66,14 +65,15 @@ def _conditional(Xnew: tf.Tensor,
     return fmean, expand_independent_outputs(fvar, full_cov, full_output_cov)
 
 
-@conditional_dispatcher.register(object, Kernel)
-def _conditional(
-        Xnew: tf.Tensor,
-        X: tf.Tensor,
-        kernel: Kernel,
-        function: tf.Tensor,
-        full_cov=False, full_output_cov=False,
-        q_sqrt=None, white=False):
+@conditional_dispatch.exclusive  # noqa: F811
+def _conditional(Xnew: Tensor,
+                 feature: Tensor,
+                 kernel: KernelType,
+                 function: Tensor,
+                 full_cov: bool = False,
+                 full_output_cov: bool = False,
+                 q_sqrt: Tensor = None,
+                 white: Tensor = False):
     """
     Given f, representing the GP at the points X, produce the mean and
     (co-)variance of the GP at the points Xnew.
@@ -109,8 +109,8 @@ def _conditional(
         - variance: [N, R] (full_cov = False), [R, N, N] (full_cov = True)
     """
     logger.debug("Conditional: Kernel")
-    Kmm = kernel(X) + default_jitter_eye(X.shape[-2])
-    Kmn = kernel(X, Xnew)
+    Kmm = kernel(feature) + default_jitter_eye(feature.shape[-2])
+    Kmn = kernel(feature, Xnew)
     Knn = kernel(Xnew, full=full_cov)
     mean, var = base_conditional(Kmn, Kmm, Knn, function,
                                  full_cov=full_cov,

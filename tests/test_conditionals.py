@@ -20,6 +20,7 @@ from numpy.testing import assert_allclose, assert_almost_equal
 import gpflow
 from gpflow.util import default_float
 from gpflow.conditionals import conditional
+from gpflow.conditionals import conditional_dispatch
 
 rng = np.random.RandomState(123)
 
@@ -111,3 +112,7 @@ def test_gaussian_whiten(Xdata, Xnew, kernel, mu, sqrt):
 
     assert_allclose(mean_diff, 0, atol=4)
     assert_allclose(var_diff, 0, atol=4)
+
+
+if __name__ == "__main__":
+    pytest.main()

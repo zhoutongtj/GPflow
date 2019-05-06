@@ -1,4 +1,32 @@
-from ..util import Dispatcher
+import tensorflow as tf
+from ..multidispatch import Dispatch
 
-conditional_dispatcher = Dispatcher('conditional')
-sample_conditional_dispatcher = Dispatcher('sample_conditional')
+
+conditional_dispatch = Dispatch('Conditional', [('feature', 1), ('kernel', 2)])
+sample_conditional_dispatch = Dispatch('SampleConditional', [('feature', 1), ('kernel', 2)])
+
+
+def conditional(Xnew: tf.Tensor,
+                feature,
+                kernel,
+                function: tf.Tensor,
+                full_cov=False,
+                full_output_cov=False,
+                q_sqrt=None,
+                white=False):
+    cb = conditional_dispatch.registered_function(type(feature), type(kernel))
+    return cb(Xnew, feature, kernel, function, full_cov, full_output_cov, q_sqrt, white)
+
+
+def sample_conditional(Xnew: tf.Tensor,
+                       feature,
+                       kernel,
+                       function: tf.Tensor,
+                       full_cov=False,
+                       full_output_cov=False,
+                       q_sqrt=None,
+                       white=False,
+                       num_samples=None):
+    cb = sample_conditional_dispatch.registered_function(type(feature), type(kernel))
+    return cb(Xnew, feature, kernel, function, full_cov, full_output_cov, q_sqrt, white,
+              num_samples)
