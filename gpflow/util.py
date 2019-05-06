@@ -128,17 +128,17 @@ def broadcasting_elementwise(op, a, b):
 
 def print_summary(module):
     column_names = ['name', 'class', 'transform', 'trainable', 'shape', 'dtype', 'value']
-    is_param_with_transform = lambda x : hasattr(x, 'transform') and x.transform is not None
+
+    def is_param_with_transform(x):
+        return hasattr(x, 'transform') and x.transform is not None
+
     column_values = [[
-        param_path,
-        param.__class__.__name__,
+        param_path, param.__class__.__name__,
         param.transform.__class__.__name__ if is_param_with_transform(param) else 'None',
         param.trainable,
-        param.read_value().shape,
-        param.dtype.name,
-        _shorten_array(param.read_value().numpy())]
-        for param_path, param in module.parameter_list()
-    ]
+        param.read_value().shape, param.dtype.name,
+        _shorten_array(param.read_value().numpy())
+    ] for param_path, param in module.parameter_list()]
     return tabulate(column_values, headers=column_names, tablefmt='fancy_grid')
 
 
@@ -147,12 +147,12 @@ def _shorten_array(array):
     short_rows = np.array2string(array, max_line_width=30, formatter=formatter)
     long_rows = np.array2string(array, max_line_width=60, formatter=formatter)
     more_items_first_row = len(short_rows.split('\n')) > len(long_rows.split('\n'))
-    first_sufix = ' ... ]' if more_items_first_row else ''
+    first_suffix = ' ... ]' if more_items_first_row else ''
     array_str = short_rows.split('...')[0].split('\n')
     more_columns = len(short_rows.split('...')) > 2 or len(short_rows.split('\n')) > 1
-    second_sufix = ', ... ' if more_columns else ''
+    second_suffix = ', ... ' if more_columns else ''
     first_item_str = array_str[0]
     array_str = [item for item in array_str[1:] if item != '']
     second_item_str = ',' + array_str[0] if more_columns and not more_items_first_row else ''
 
-    return first_item_str + first_sufix + second_item_str + second_sufix
+    return first_item_str + first_suffix + second_item_str + second_suffix
