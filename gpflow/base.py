@@ -1,13 +1,13 @@
 import functools
-import abc
 from typing import List, Optional, Tuple, Union
 
 import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
+from tensorflow.python.module.module import AUTO_CHECKPOINTABLE_ATTRS
 from tensorflow.python.ops import array_ops
 
-from .util import default_float
+from .util import default_float, print_summary
 
 DType = Union[np.dtype, tf.DType]
 VariableData = Union[List, Tuple, np.ndarray, int, float]
@@ -34,6 +34,26 @@ class Module(tf.Module):
     @property
     def trainable_parameters(self):
         return self._flatten(predicate=_IS_TRAINABLE_PARAMETER)
+
+    def parameter_list(self, predicate=_IS_PARAMETER, prefix=None):
+
+        prefix = self.__class__.__name__ if prefix is None else prefix
+        params_list = []
+        module_dict = vars(self)
+        for key, submodule in module_dict.items():
+            if key in AUTO_CHECKPOINTABLE_ATTRS:
+                continue
+            if isinstance(submodule, Parameter) and predicate(submodule):
+                params_list.append(('%s.%s' % (prefix, key), submodule))
+            elif isinstance(submodule, tf.Variable):
+                params_list.append(('%s.%s' % (prefix, key), submodule))
+            elif isinstance(submodule, tf.Module):
+                submodule_params = submodule.parameter_list(prefix='%s.%s' % (prefix, key))
+                params_list.extend(submodule_params)
+        return params_list
+
+    def __str__(self):
+        return print_summary(self)
 
 
 class Parameter(tf.Module):

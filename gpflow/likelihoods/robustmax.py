@@ -2,11 +2,11 @@ import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
 
-from ..base import Parameter
+from ..base import Module, Parameter
 from ..util import default_int
 
 
-class RobustMax(tf.Module):
+class RobustMax(Module):
     """
     This class represent a multi-class inverse-link function. Given a vector
     f=[f_1, f_2, ... f_k], the result of the mapping is

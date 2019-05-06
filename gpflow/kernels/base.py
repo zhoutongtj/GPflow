@@ -21,12 +21,13 @@ in the `"Using kernels in GPflow" notebook <notebooks/kernels.html>`_.
 import abc
 from functools import partial, reduce
 from typing import Optional
+from ..base import Module
 
 import numpy as np
 import tensorflow as tf
 
 
-class Kernel(tf.Module):
+class Kernel(Module):
     """
     The basic kernel class. Handles active dims.
     """
