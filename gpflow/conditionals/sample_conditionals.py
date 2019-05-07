@@ -1,4 +1,4 @@
-from typing import TypeVar
+from typing import Union
 import tensorflow as tf
 
 from .dispatch import sample_conditional_dispatch, conditional
@@ -11,9 +11,9 @@ from ..util import create_logger
 logger = create_logger()
 
 
-@sample_conditional_dispatch.exclusive
+@sample_conditional_dispatch
 def _sample_conditional(Xnew: tf.Tensor,
-                        feature: TypeVar('feature', object, InducingFeature),
+                        feature: Union[tf.Tensor, InducingFeature],
                         kernel: Kernel,
                         function: tf.Tensor,
                         full_cov=False,

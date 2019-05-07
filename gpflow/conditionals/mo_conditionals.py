@@ -1,24 +1,27 @@
 # flake8: ignore=F811
 # noqa: ignore=F811
 
-import tensorflow as tf
-
 from typing import Union
 
-from .dispatch import conditional_dispatch
-from .util import (base_conditional, expand_independent_outputs, fully_correlated_conditional,
-                   independent_interdomain_conditional, mix_latent_gp, rollaxis_left)
+import tensorflow as tf
+
 from .. import covariances
-from ..features import (InducingPoints, MixedKernelSharedMof, MixedKernelSeparateMof,
-                        SeparateIndependentMof, SharedIndependentMof)
-from ..kernels import (Combination, Mok, SeparateIndependentMok, SeparateMixedMok,
-                       SharedIndependentMok)
-from ..util import create_logger, default_jitter, default_float, Register
+from ..features import (InducingPoints, MixedKernelSeparateMof,
+                        MixedKernelSharedMof, SeparateIndependentMof,
+                        SharedIndependentMof)
+from ..kernels import (Combination, Mok, SeparateIndependentMok,
+                       SeparateMixedMok, SharedIndependentMok)
+from ..util import create_logger, default_float, default_jitter
+from .dispatch import conditional_dispatch
+from .util import (base_conditional, expand_independent_outputs,
+                   fully_correlated_conditional,
+                   independent_interdomain_conditional, mix_latent_gp,
+                   rollaxis_left)
 
 logger = create_logger()
 
 
-@conditional_dispatch.exclusive  # noqa: F811
+@conditional_dispatch  # noqa: F811
 def _conditional(Xnew: tf.Tensor,
                  feature: SharedIndependentMof,
                  kernel: SharedIndependentMok,
@@ -67,12 +70,9 @@ def _conditional(Xnew: tf.Tensor,
     return fmean, expand_independent_outputs(fvar, full_cov, full_output_cov)
 
 
-exclusive_register = conditional_dispatch.exclusive_register
-
-
-@exclusive_register(feature=SeparateIndependentMof, kernel=SeparateIndependentMok)  # noqa: F811
-@exclusive_register(feature=SharedIndependentMof, kernel=SeparateIndependentMok)
-@exclusive_register(feature=SeparateIndependentMof, kernel=SharedIndependentMok)
+@conditional_dispatch.register(feature=SeparateIndependentMof, kernel=SeparateIndependentMok)  # noqa: F811, E501
+@conditional_dispatch.register(feature=SharedIndependentMof, kernel=SeparateIndependentMok)
+@conditional_dispatch.register(feature=SeparateIndependentMof, kernel=SharedIndependentMok)
 def _conditional(Xnew: tf.Tensor,
                  feature,
                  kernel,
@@ -101,8 +101,10 @@ def _conditional(Xnew: tf.Tensor,
     # Following are: [P, M, M]  -  [P, M, N]  -  [P, N](x N)
     Kmms = covariances.Kuu(feature, kernel, jitter=default_jitter())  # [P, M, M]
     Kmns = covariances.Kuf(feature, kernel, Xnew)  # [P, M, N]
-    kernels = kernel.kernels if isinstance(kernel,
-                                           Combination) else [kernel.kernel] * len(feature.features)
+    if isinstance(kernel, Combination):
+        kernels = kernel.kernels
+    else:
+        kernels = [kernel.kernel] * len(feature.features)
     Knns = tf.stack([k.K(Xnew) if full_cov else k.K_diag(Xnew) for k in kernels], axis=0)
     fs = tf.transpose(f)[:, :, None]  # [P, M, 1]
     # [P, 1, M, M]  or  [P, M, 1]
@@ -127,7 +129,7 @@ def _conditional(Xnew: tf.Tensor,
     return fmu, expand_independent_outputs(fvar, full_cov, full_output_cov)
 
 
-@conditional_dispatch.exclusive  # noqa: F811
+@conditional_dispatch  # noqa: F811
 def _conditional(Xnew: tf.Tensor,
                  feature: Union[SharedIndependentMof, SeparateIndependentMof],
                  kernel: SeparateMixedMok,
@@ -168,7 +170,7 @@ def _conditional(Xnew: tf.Tensor,
                                                white=white)
 
 
-@conditional_dispatch.exclusive  # noqa: F811
+@conditional_dispatch  # noqa: F811
 def _conditional(Xnew: tf.Tensor,
                  feature: InducingPoints,
                  kernel: Mok,
@@ -232,7 +234,7 @@ def _conditional(Xnew: tf.Tensor,
     return fmean, fvar
 
 
-@conditional_dispatch.exclusive  # noqa: F811
+@conditional_dispatch  # noqa: F811
 def _conditional(Xnew: tf.Tensor,
                  feature: Union[MixedKernelSharedMof, MixedKernelSeparateMof],
                  kernel: SeparateMixedMok,

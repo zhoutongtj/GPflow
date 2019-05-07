@@ -1,24 +1,19 @@
-from typing import TypeVar
+import tensorflow as tf
 
-from .dispatch import conditional_dispatch
-from .util import base_conditional, expand_independent_outputs
 from ..covariances import Kuf, Kuu
 from ..features import InducingFeature
-from ..kernels import Kernel, Sum, Product, Combination
-from .. import kernels
+from ..kernels import Kernel
 from ..util import create_logger, default_jitter, default_jitter_eye
-from ..types import Tensor
+from .dispatch import conditional_dispatch
+from .util import base_conditional, expand_independent_outputs
 
 logger = create_logger()
 
 
-KernelType = TypeVar("KernelType", Kernel, Product, Sum, Combination)
-
-
-@conditional_dispatch.exclusive  # noqa: F811
+@conditional_dispatch  # noqa: F811
 def _conditional(Xnew: Tensor,
                  feature: InducingFeature,
-                 kernel: KernelType,
+                 kernel: Kernel,
                  function: Tensor,
                  full_cov=False,
                  full_output_cov=False,
@@ -65,11 +60,11 @@ def _conditional(Xnew: Tensor,
     return fmean, expand_independent_outputs(fvar, full_cov, full_output_cov)
 
 
-@conditional_dispatch.exclusive  # noqa: F811
-def _conditional(Xnew: Tensor,
-                 feature: Tensor,
-                 kernel: KernelType,
-                 function: Tensor,
+@conditional_dispatch  # noqa: F811
+def _conditional(Xnew: tf.Tensor,
+                 feature: tf.Tensor,
+                 kernel: Kernel,
+                 function: tf.Tensor,
                  full_cov: bool = False,
                  full_output_cov: bool = False,
                  q_sqrt: Tensor = None,

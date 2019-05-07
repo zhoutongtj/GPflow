@@ -9,7 +9,7 @@ from .util import sample_mvn, mix_latent_gp
 logger = create_logger()
 
 
-@sample_conditional_dispatch.exclusive
+@sample_conditional_dispatch
 def _sample_conditional(Xnew: tf.Tensor,
                         feature: MixedKernelSharedMof,
                         kernel: SeparateMixedMok,

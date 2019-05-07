@@ -1,12 +1,7 @@
-import copy
-import logging
 import itertools
-from typing import Callable, List, Tuple, Union, Type, TypeVar
+from typing import Callable, List, Tuple, Type, TypeVar, Union
 
-import numpy as np
-import tensorflow as tf
 from tensorflow.python.util import tf_inspect
-
 
 __all__ = [
     'Dispatch',
@@ -22,6 +17,7 @@ DispatchArgspecs = List[DispatchArgspec]
 class Dispatch:
     def __init__(self, name: str, argspecs: DispatchArgspecs):
         self._name = name
+        self._call_cache_dict = dict()
         self._storage_dict = dict()
         self._dispatch_specs = valid_dispatch_argspecs(argspecs)
 
@@ -29,31 +25,46 @@ class Dispatch:
     def name(self):
         return self._name
 
-    def registered_function(self, *types):
+    def registered_function(self, *types):  # TODO(@awav): make caching smarter!!!
         key = tuple(types)
-        if key not in self._storage_dict:
-            raise ValueError(f"Dispatcher does not have registered function for '{key}'")
-        return self._storage_dict[key]
+        func_match = self._storage_dict.get(key, None)
+        if func_match is not None:
+            return func_match
+        func_match = self._call_cache_dict.get(key, None)
+        if func_match is None:
+            func_match = self._find_match_in_ancestors(key)
+            if func_match is None:
+                raise ValueError(f"Dispatcher does not have registered function for '{key}'")
+            self._call_cache_dict[key] = func_match
+        return func_match
 
     def __call__(self, func: Callable):
-        self._register_using_func_annotations(func, use_subclasses=True)
+        self._register_using_func_annotations(func, use_ancestors=False)
         return func
-
-    def exclusive(self, func: Callable):
-        self._register_using_func_annotations(func, use_subclasses=False)
-        return func
-
-    def exclusive_register(self, **kwargs):
-        def register(func: Callable):
-            self._register_using_specified_types(kwargs, func, use_subclasses=False)
-            return func
-        return register
 
     def register(self, **kwargs):
         def register(func: Callable):
-            self._register_using_specified_types(kwargs, func, use_subclasses=True)
+            self._register_using_specified_types(kwargs, func, use_ancestors=False)
             return func
         return register
+
+    def cross_product(self, func: Callable):
+        self._register_using_func_annotations(func, use_ancestors=True)
+        return func
+
+    def cross_product_register(self, **kwargs):
+        def register(func: Callable):
+            self._register_using_specified_types(kwargs, func, use_ancestors=True)
+            return func
+        return register
+
+    def _find_match_in_ancestors(self, key):
+        key_with_ancestors = extend_with_ancestors(key)
+        type_combinations = cross_product(key_with_ancestors)
+        for combination in type_combinations:
+            func_match = self._storage_dict.get(combination, None)
+            if func_match is not None:
+                return func_match
 
     def _extract_types(self, handle_cb: Callable):
         types = []
@@ -90,9 +101,9 @@ class Dispatch:
 
         return self._extract_types(annotation_cb)
 
-    def _register_function(self, argtypes, func: Callable, use_subclasses: bool):
-        if use_subclasses:
-            argtypes = list(extend_with_subclasses(argtypes))
+    def _register_function(self, argtypes, func: Callable, use_ancestors: bool):
+        if use_ancestors:
+            argtypes = extend_with_ancestors(argtypes)
         argtype_keys = cross_product(argtypes)
         for argkey in argtype_keys:
             if argkey in self._storage_dict:
@@ -100,13 +111,13 @@ class Dispatch:
                 continue
             self._storage_dict[argkey] = func
 
-    def _register_using_specified_types(self, kwargs, func: Callable, use_subclasses=True):
+    def _register_using_specified_types(self, kwargs, func: Callable, use_ancestors=True):
         argtypes = self._extract_types_by_dispatch_args(kwargs)
-        self._register_function(argtypes, func, use_subclasses)
+        self._register_function(argtypes, func, use_ancestors)
 
-    def _register_using_func_annotations(self, func: Callable, use_subclasses=True):
+    def _register_using_func_annotations(self, func: Callable, use_ancestors=True):
         argtypes = self._extract_types_by_func_annotations(func)
-        self._register_function(argtypes, func, use_subclasses)
+        self._register_function(argtypes, func, use_ancestors)
 
 
 # Dispatcher helpers
@@ -155,7 +166,8 @@ def cross_product(argtypes):
     return combination
 
 
-def extend_with_subclasses(argtypes: List[Union[Type, List[Type]]]):
+def extend_with_ancestors(argtypes: List[Union[Type, List[Type]]]):
+    argtypes_with_ancestors = []
     for i, argtype in enumerate(argtypes):
         if not isinstance(argtype, (list, tuple)):
             types_to_expand = [argtype]
@@ -166,9 +178,10 @@ def extend_with_subclasses(argtypes: List[Union[Type, List[Type]]]):
 
         argtype_with_parents = []
         for t in types_to_expand:
-            subclasses = list(tf_inspect.getmro(t))
-            if object in subclasses:  # Do not include "object" automatically
-                subclasses.remove(object)
-            argtype_with_parents.extend(subclasses)
+            ancestors = list(tf_inspect.getmro(t))
+            if object in ancestors:  # Do not include "object" automatically
+                ancestors.remove(object)
+            argtype_with_parents.extend(ancestors)
 
-        yield argtype_with_parents
+        argtypes_with_ancestors.append(argtype_with_parents)
+    return argtypes_with_ancestors
