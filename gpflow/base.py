@@ -4,7 +4,6 @@ from typing import List, Optional, Tuple, Union
 import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
-from tensorflow.python.module.module import AUTO_CHECKPOINTABLE_ATTRS
 from tensorflow.python.ops import array_ops
 
 from .util import default_float, print_summary
@@ -41,7 +40,7 @@ class Module(tf.Module):
         params_list = []
         module_dict = vars(self)
         for key, submodule in module_dict.items():
-            if key in AUTO_CHECKPOINTABLE_ATTRS:
+            if key in self._TF_MODULE_IGNORED_PROPERTIES:
                 continue
             if isinstance(submodule, Parameter) and predicate(submodule):
                 params_list.append(('%s.%s' % (prefix, key), submodule))
