@@ -143,9 +143,9 @@ def print_summary(module):
 
 
 def _shorten_array(array):
-    formatter = {'float_kind': lambda x: "%.4f" % x}
-    short_rows = np.array2string(array, max_line_width=30, formatter=formatter)
-    long_rows = np.array2string(array, max_line_width=60, formatter=formatter)
+    digit_format = {'float_kind': lambda x: "%.4f" % x}
+    short_rows = np.array2string(array, max_line_width=30, formatter=digit_format)
+    long_rows = np.array2string(array, max_line_width=60, formatter=digit_format)
     more_items_first_row = len(short_rows.split('\n')) > len(long_rows.split('\n'))
     first_suffix = ' ... ]' if more_items_first_row else ''
     array_str = short_rows.split('...')[0].split('\n')
