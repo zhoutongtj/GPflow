@@ -1,5 +1,5 @@
 import copy
-import logging
+# import logging
 import itertools
 from typing import Callable, List, Tuple, Union, Type, TypeVar
 
@@ -7,13 +7,13 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.python.util import tf_inspect
 
+from gpflow.util import NoneType
 
 __all__ = [
     'Dispatch',
     'DispatchArgspec',
     'DispatchArgspecs',
 ]
-
 
 DispatchArgspec = TypeVar('DispatchArgspec', str, Tuple[str, int])
 DispatchArgspecs = List[DispatchArgspec]
@@ -22,6 +22,7 @@ DispatchArgspecs = List[DispatchArgspec]
 class Dispatch:
     def __init__(self, name: str, argspecs: DispatchArgspecs):
         self._name = name
+        self._call_cache = dict()
         self._storage_dict = dict()
         self._dispatch_specs = valid_dispatch_argspecs(argspecs)
 
@@ -30,29 +31,43 @@ class Dispatch:
         return self._name
 
     def registered_function(self, *types):
-        key = tuple(types)
-        if key not in self._storage_dict:
-            raise ValueError(f"Dispatcher does not have registered function for '{key}'")
+        if not self._call_cache.get(tuple(types), None):
+            key = self.search_in_hierarchy(*types)
+            if key not in self._storage_dict:
+                raise ValueError(f"Dispatcher does not have registered function for '{key}'")
+            self._call_cache[tuple(types)] = key
+        else:
+            key = self._call_cache[tuple(types)]
         return self._storage_dict[key]
 
-    def __call__(self, func: Callable):
-        self._register_using_func_annotations(func, use_subclasses=True)
-        return func
+    def search_in_hierarchy(self, *types):
+        hierarchies = [tf_inspect.getmro(type_arg) if type_arg is not NoneType
+                       else (NoneType, object) for type_arg in types]
+        selected_types = cross_product(hierarchies).intersection(set(self._storage_dict))
+        sorted_selected_types = sorted(selected_types,
+                                       key=lambda x: ranking_criteria(x, hierarchies))
+        return tuple(sorted_selected_types[0])
 
-    def exclusive(self, func: Callable):
+    def __call__(self, func: Callable):
         self._register_using_func_annotations(func, use_subclasses=False)
         return func
 
-    def exclusive_register(self, **kwargs):
+    def register(self, **kwargs):
         def register(func: Callable):
             self._register_using_specified_types(kwargs, func, use_subclasses=False)
             return func
+
         return register
 
-    def register(self, **kwargs):
+    def cross_product(self, func: Callable):
+        self._register_using_func_annotations(func, use_subclasses=True)
+        return func
+
+    def cross_product_register(self, **kwargs):
         def register(func: Callable):
             self._register_using_specified_types(kwargs, func, use_subclasses=True)
             return func
+
         return register
 
     def _extract_types(self, handle_cb: Callable):
@@ -172,3 +187,10 @@ def extend_with_subclasses(argtypes: List[Union[Type, List[Type]]]):
             argtype_with_parents.extend(subclasses)
 
         yield argtype_with_parents
+
+
+def ranking_criteria(types, hierarchies):
+    rank = 0
+    for i, arg_type in enumerate(types):
+        rank += hierarchies[i].index(arg_type)
+    return rank

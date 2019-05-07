@@ -11,7 +11,7 @@ from ..util import create_logger
 logger = create_logger()
 
 
-@sample_conditional_dispatch.exclusive
+@sample_conditional_dispatch
 def _sample_conditional(Xnew: tf.Tensor,
                         feature: TypeVar('feature', object, InducingFeature),
                         kernel: Kernel,

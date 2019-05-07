@@ -18,7 +18,7 @@ from ..util import create_logger, default_jitter, default_float, Register
 logger = create_logger()
 
 
-@conditional_dispatch.exclusive  # noqa: F811
+@conditional_dispatch # noqa: F811
 def _conditional(Xnew: tf.Tensor,
                  feature: SharedIndependentMof,
                  kernel: SharedIndependentMok,
@@ -67,12 +67,12 @@ def _conditional(Xnew: tf.Tensor,
     return fmean, expand_independent_outputs(fvar, full_cov, full_output_cov)
 
 
-exclusive_register = conditional_dispatch.exclusive_register
+register = conditional_dispatch.register
 
 
-@exclusive_register(feature=SeparateIndependentMof, kernel=SeparateIndependentMok)  # noqa: F811
-@exclusive_register(feature=SharedIndependentMof, kernel=SeparateIndependentMok)
-@exclusive_register(feature=SeparateIndependentMof, kernel=SharedIndependentMok)
+@register(feature=SeparateIndependentMof, kernel=SeparateIndependentMok)  # noqa: F811
+@register(feature=SharedIndependentMof, kernel=SeparateIndependentMok)
+@register(feature=SeparateIndependentMof, kernel=SharedIndependentMok)
 def _conditional(Xnew: tf.Tensor,
                  feature,
                  kernel,
@@ -127,7 +127,7 @@ def _conditional(Xnew: tf.Tensor,
     return fmu, expand_independent_outputs(fvar, full_cov, full_output_cov)
 
 
-@conditional_dispatch.exclusive  # noqa: F811
+@conditional_dispatch # noqa: F811
 def _conditional(Xnew: tf.Tensor,
                  feature: Union[SharedIndependentMof, SeparateIndependentMof],
                  kernel: SeparateMixedMok,
@@ -168,7 +168,7 @@ def _conditional(Xnew: tf.Tensor,
                                                white=white)
 
 
-@conditional_dispatch.exclusive  # noqa: F811
+@conditional_dispatch # noqa: F811
 def _conditional(Xnew: tf.Tensor,
                  feature: InducingPoints,
                  kernel: Mok,
@@ -232,7 +232,7 @@ def _conditional(Xnew: tf.Tensor,
     return fmean, fvar
 
 
-@conditional_dispatch.exclusive  # noqa: F811
+@conditional_dispatch # noqa: F811
 def _conditional(Xnew: tf.Tensor,
                  feature: Union[MixedKernelSharedMof, MixedKernelSeparateMof],
                  kernel: SeparateMixedMok,

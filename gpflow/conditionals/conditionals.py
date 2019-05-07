@@ -15,7 +15,7 @@ logger = create_logger()
 KernelType = TypeVar("KernelType", Kernel, Product, Sum, Combination)
 
 
-@conditional_dispatch.exclusive  # noqa: F811
+@conditional_dispatch  # noqa: F811
 def _conditional(Xnew: Tensor,
                  feature: InducingFeature,
                  kernel: KernelType,
@@ -65,7 +65,7 @@ def _conditional(Xnew: Tensor,
     return fmean, expand_independent_outputs(fvar, full_cov, full_output_cov)
 
 
-@conditional_dispatch.exclusive  # noqa: F811
+@conditional_dispatch # noqa: F811
 def _conditional(Xnew: Tensor,
                  feature: Tensor,
                  kernel: KernelType,
