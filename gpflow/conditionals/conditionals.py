@@ -1,20 +1,20 @@
+from typing import Optional
+
 import tensorflow as tf
 
 from ..covariances import Kuf, Kuu
 from ..features import InducingFeature
 from ..kernels import Kernel
-from ..util import create_logger, default_jitter, default_jitter_eye
+from ..util import default_jitter, default_jitter_eye
 from .dispatch import conditional_dispatch
 from .util import base_conditional, expand_independent_outputs
 
-logger = create_logger()
-
 
 @conditional_dispatch  # noqa: F811
-def _conditional(Xnew: Tensor,
+def _conditional(Xnew: tf.Tensor,
                  feature: InducingFeature,
                  kernel: Kernel,
-                 function: Tensor,
+                 function: tf.Tensor,
                  full_cov=False,
                  full_output_cov=False,
                  q_sqrt=None,
@@ -31,7 +31,7 @@ def _conditional(Xnew: Tensor,
     -----------------
     - See `gpflow.conditionals._conditional` (below) for a detailed explanation of
       conditional in the single-output case.
-    - See the multiouput notebook for more information about the multiouput framework.
+    - See the multioutput notebook for more information about the multioutput framework.
 
     Parameters
     ----------
@@ -50,7 +50,6 @@ def _conditional(Xnew: Tensor,
         Please see `gpflow.conditional._expand_independent_outputs` for more information
         about the shape of the variance, depending on `full_cov` and `full_output_cov`.
     """
-    logger.debug("Conditional: Inducing Feature - Kernel")
 
     Kmm = Kuu(feature, kernel, jitter=default_jitter())  # [M, M]
     Kmn = Kuf(feature, kernel, Xnew)  # [M, N]
@@ -67,8 +66,8 @@ def _conditional(Xnew: tf.Tensor,
                  function: tf.Tensor,
                  full_cov: bool = False,
                  full_output_cov: bool = False,
-                 q_sqrt: Tensor = None,
-                 white: Tensor = False):
+                 q_sqrt: Optional[tf.Tensor] = None,
+                 white: Optional[bool] = False):
     """
     Given f, representing the GP at the points X, produce the mean and
     (co-)variance of the GP at the points Xnew.
@@ -103,7 +102,6 @@ def _conditional(Xnew: tf.Tensor,
         - mean:     [N, R]
         - variance: [N, R] (full_cov = False), [R, N, N] (full_cov = True)
     """
-    logger.debug("Conditional: Kernel")
     Kmm = kernel(feature) + default_jitter_eye(feature.shape[-2])
     Kmn = kernel(feature, Xnew)
     Knn = kernel(Xnew, full=full_cov)

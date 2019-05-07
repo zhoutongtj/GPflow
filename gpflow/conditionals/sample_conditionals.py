@@ -5,10 +5,6 @@ from .dispatch import sample_conditional_dispatch, conditional
 from .util import sample_mvn
 from ..features import InducingFeature
 from ..kernels import Kernel
-from ..util import create_logger
-
-
-logger = create_logger()
 
 
 @sample_conditional_dispatch

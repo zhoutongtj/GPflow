@@ -11,14 +11,12 @@ from ..features import (InducingPoints, MixedKernelSeparateMof,
                         SharedIndependentMof)
 from ..kernels import (Combination, Mok, SeparateIndependentMok,
                        SeparateMixedMok, SharedIndependentMok)
-from ..util import create_logger, default_float, default_jitter
+from ..util import default_float, default_jitter
 from .dispatch import conditional_dispatch
 from .util import (base_conditional, expand_independent_outputs,
                    fully_correlated_conditional,
                    independent_interdomain_conditional, mix_latent_gp,
                    rollaxis_left)
-
-logger = create_logger()
 
 
 @conditional_dispatch  # noqa: F811
@@ -96,8 +94,6 @@ def _conditional(Xnew: tf.Tensor,
     - See above for the parameters and the return value.
     """
 
-    logger.debug("conditional: object, SharedIndependentMof, SeparateIndependentMok, object")
-
     # Following are: [P, M, M]  -  [P, M, N]  -  [P, N](x N)
     Kmms = covariances.Kuu(feature, kernel, jitter=default_jitter())  # [P, M, M]
     Kmns = covariances.Kuf(feature, kernel, Xnew)  # [P, M, N]
@@ -154,7 +150,6 @@ def _conditional(Xnew: tf.Tensor,
     - See above for the parameters and the return value.
     """
 
-    logger.debug("Conditional: (SharedIndependentMof, SeparateIndepedentMof) - SeparateMixedMok")
     Kmm = covariances.Kuu(feature, kernel, jitter=default_jitter())  # [L, M, M]
     Kmn = covariances.Kuf(feature, kernel, Xnew)  # [M, L, N, P]
     Knn = kernel(Xnew, full=full_cov,
@@ -198,8 +193,6 @@ def _conditional(Xnew: tf.Tensor,
     :param f: variational mean, [L, 1]
     :param q_sqrt: standard-deviations or cholesky, [L, 1]  or  [1, L, L]
     """
-
-    logger.debug("Conditional: InducingPoints -- Mok")
 
     Kmm = covariances.Kuu(feature, kernel, jitter=default_jitter())  # [M, L, M, L]
     Kmn = covariances.Kuf(feature, kernel, Xnew)  # [M, L, N, P]
@@ -257,8 +250,6 @@ def _conditional(Xnew: tf.Tensor,
       conditional in the single-output case.
     - See the multiouput notebook for more information about the multiouput framework.
     """
-
-    logger.debug("conditional: (MixedKernelSharedMof, MixedKernelSeparateMof), SeparateMixedMok")
     cb = conditional_dispatch.registered_function(SeparateIndependentMof, SeparateIndependentMok)
     gmu, gvar = cb(Xnew,
                    feature,

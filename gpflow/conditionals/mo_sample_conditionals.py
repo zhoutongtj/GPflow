@@ -2,11 +2,8 @@ import tensorflow as tf
 
 from ..features import MixedKernelSharedMof, SeparateIndependentMof
 from ..kernels import SeparateIndependentMok, SeparateMixedMok
-from ..util import create_logger, Register
 from .dispatch import conditional_dispatch, sample_conditional_dispatch
 from .util import sample_mvn, mix_latent_gp
-
-logger = create_logger()
 
 
 @sample_conditional_dispatch
