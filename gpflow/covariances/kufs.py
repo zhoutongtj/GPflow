@@ -1,23 +1,17 @@
 import tensorflow as tf
 
-from gpflow.util import Register
 from ..features import InducingPoints, Multiscale
 from ..kernels import Kernel, RBF
-from .dispatch import Kuf_dispatcher
+from .dispatch import Kuf_dispatch
 
 
-def Kuf(feature: InducingPoints, kernel: Kernel, Xnew):
-    kuf_fn = Kuf_dispatcher.registered_fn(type(feature), type(kernel))
-    return kuf_fn(feature, kernel, Xnew)
-
-
-@Kuf_dispatcher.register(InducingPoints, Kernel)
+@Kuf_dispatch
 def _Kuf(feature: InducingPoints, kernel: Kernel, Xnew: tf.Tensor):
     return kernel(feature.Z, Xnew)
 
 
-@Kuf_dispatcher.register(Multiscale, RBF)
-def _Kuf(feature: Multiscale, kernel: RBF, Xnew):
+@Kuf_dispatch
+def _Kuf(feature: Multiscale, kernel: RBF, Xnew: tf.Tensor):
     Xnew, _ = kernel.slice(Xnew, None)
     Zmu, Zlen = kernel.slice(feature.Z, feature.scales)
     idlengthscale = kernel.lengthscale + Zlen

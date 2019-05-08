@@ -28,6 +28,7 @@ import gpflow.features.mo_features as mf
 import gpflow.kernels.mo_kernels as mk
 from gpflow.conditionals import sample_conditional
 from gpflow.conditionals.util import mix_latent_gp, rollaxis_left, rollaxis_right
+from gpflow.util import default_float
 
 
 # ------------------------------------------
@@ -43,7 +44,7 @@ class Data:
     SX = np.random.randn(S1 * S2, N, Dx)
     S1_S2_X = np.reshape(SX, [S1, S2, N, Dx])
 
-    Z = np.random.randn(M, Dx)
+    Z = tf.random.normal((M, Dx), dtype=default_float())
 
 
 @pytest.mark.parametrize("full_cov", [False, True])
@@ -80,7 +81,8 @@ def test_conditional_broadcasting(full_cov, white, conditional_type):
         pytest.skip("combination is not implemented")
 
     num_samples = 5
-    sample_conditional_fn = lambda X: sample_conditional(X, feature, kernel, tf.convert_to_tensor(q_mu),
+    sample_conditional_fn = lambda X: sample_conditional(X, feature, kernel,
+                                                         tf.convert_to_tensor(q_mu),
                                                          q_sqrt=tf.convert_to_tensor(q_sqrt),
                                                          white=white, full_cov=full_cov,
                                                          num_samples=num_samples

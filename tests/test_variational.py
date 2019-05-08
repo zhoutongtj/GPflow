@@ -13,12 +13,14 @@
 # limitations under the License.
 
 import numpy as np
+import tensorflow as tf
 import pytest
 from numpy.testing import assert_allclose
 
 import gpflow
 from gpflow.kernels import RBF
 from gpflow.likelihoods import Gaussian
+from gpflow.util import default_float
 from tests.reference import ref_rbf_kernel
 
 rng = np.random.RandomState(1)
@@ -78,6 +80,7 @@ class Datum:
     X = np.atleast_2d(np.array([0.]))
     Y = np.atleast_2d(np.array([y_data]))
     Z = X.copy()
+    Z_tensor = tf.convert_to_tensor(Z, dtype=default_float())
     zero_mean = 0.
     K = 1.
     noise_var = 0.5
@@ -137,7 +140,8 @@ def test_variational_univariate_log_likelihood(diag, whiten):
     ones = np.ones((1, Datum.num_latent)) if diag else np.ones((1, 1, Datum.num_latent))
     q_sqrt = ones * Datum.posterior_std
     model = gpflow.models.SVGP(kernel=RBF(variance=Datum.K), likelihood=Gaussian(),
-                               feature=Datum.Z, num_latent=Datum.num_latent, q_diag=diag,
+                               feature=Datum.Z,
+                               num_latent=Datum.num_latent, q_diag=diag,
                                whiten=whiten, q_mu=q_mu, q_sqrt=q_sqrt)
     model_likelihood = model.log_likelihood(X=Datum.X, Y=Datum.Y).numpy()
     assert_allclose(model_likelihood - reference_log_marginal_likelihood, 0, atol=4)
@@ -153,7 +157,7 @@ def test_variational_univariate_conditionals(diag, whiten):
                                feature=Datum.Z, num_latent=Datum.num_latent, q_diag=diag,
                                whiten=whiten, q_mu=q_mu, q_sqrt=q_sqrt)
 
-    fmean_func, fvar_func = gpflow.conditionals.conditional(Datum.X, Datum.Z, model.kernel,
+    fmean_func, fvar_func = gpflow.conditionals.conditional(Datum.X, Datum.Z_tensor, model.kernel,
                                                             model.q_mu, q_sqrt=model.q_sqrt,
                                                             white=whiten)
     mean_value, var_value = fmean_func[0, 0], fvar_func[0, 0]

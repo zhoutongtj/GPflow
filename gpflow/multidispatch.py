@@ -9,7 +9,6 @@ __all__ = [
     'DispatchArgspecs',
 ]
 
-
 DispatchArgspec = TypeVar('DispatchArgspec', str, Tuple[str, int])
 DispatchArgspecs = List[DispatchArgspec]
 
@@ -25,14 +24,14 @@ class Dispatch:
     def name(self):
         return self._name
 
-    def registered_function(self, *types):  # TODO(@awav): make caching smarter!!!
+    def registered_function(self, *types):
         key = tuple(types)
         func_match = self._storage_dict.get(key, None)
         if func_match is not None:
             return func_match
         func_match = self._call_cache_dict.get(key, None)
         if func_match is None:
-            func_match = self._find_match_in_ancestors(key)
+            func_match, _ = self._find_match_in_ancestors(key)
             if func_match is None:
                 raise ValueError(f"Dispatcher does not have registered function for '{key}'")
             self._call_cache_dict[key] = func_match
@@ -46,6 +45,7 @@ class Dispatch:
         def register(func: Callable):
             self._register_using_specified_types(kwargs, func, use_ancestors=False)
             return func
+
         return register
 
     def cross_product(self, func: Callable):
@@ -56,15 +56,16 @@ class Dispatch:
         def register(func: Callable):
             self._register_using_specified_types(kwargs, func, use_ancestors=True)
             return func
+
         return register
 
     def _find_match_in_ancestors(self, key):
         key_with_ancestors = extend_with_ancestors(key)
-        type_combinations = cross_product(key_with_ancestors)
-        for combination in type_combinations:
-            func_match = self._storage_dict.get(combination, None)
-            if func_match is not None:
-                return func_match
+        selected_types = cross_product(key_with_ancestors).intersection(set(self._storage_dict))
+        sorted_selected_types = sorted(selected_types,
+                                       key=lambda x: ranking_criteria(x, key_with_ancestors))
+        selected_key = tuple(sorted_selected_types[0])
+        return self._storage_dict[selected_key], selected_key
 
     def _extract_types(self, handle_cb: Callable):
         types = []
@@ -185,3 +186,10 @@ def extend_with_ancestors(argtypes: List[Union[Type, List[Type]]]):
 
         argtypes_with_ancestors.append(argtype_with_parents)
     return argtypes_with_ancestors
+
+
+def ranking_criteria(types, hierarchies):
+    rank = 0
+    for i, arg_type in enumerate(types):
+        rank += hierarchies[i].index(arg_type)
+    return rank

@@ -56,7 +56,6 @@ def _conditional(Xnew: tf.Tensor,
         Please see `gpflow.conditional._expand_independent_outputs` for more information
         about the shape of the variance, depending on `full_cov` and `full_output_cov`.
     """
-    logger.debug("Conditional: SharedIndependentMof - SharedIndepedentMok")
 
     Kmm = covariances.Kuu(feature, kernel, jitter=default_jitter())  # [M, M]
     Kmn = covariances.Kuf(feature, kernel, Xnew)  # [M, N]

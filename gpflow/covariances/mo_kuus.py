@@ -2,13 +2,12 @@ from typing import Union
 
 import tensorflow as tf
 
-from .dispatch import Kuu_dispatcher
-from .kuus import Kuu
+from .dispatch import Kuu_dispatch, Kuu
 from ..features import (InducingPoints, MixedKernelSharedMof,
                         SeparateIndependentMof, SharedIndependentMof)
 from ..kernels import (Mok, SeparateIndependentMok, SeparateMixedMok,
                        SharedIndependentMok)
-from ..util import create_logger, Register
+from ..util import create_logger
 
 logger = create_logger()
 
@@ -21,7 +20,7 @@ def debug_kuu(feature, kernel, jitter):
         jitter))
 
 
-@Kuu_dispatcher.register(InducingPoints, Mok)
+@Kuu_dispatch
 def _Kuu(feature: InducingPoints, kernel: Mok, jitter=0.0):
     debug_kuu(feature, kernel, jitter)
     Kmm = kernel(feature.Z, full=True, full_output_cov=True)  # [M, P, M, P]
@@ -30,7 +29,7 @@ def _Kuu(feature: InducingPoints, kernel: Mok, jitter=0.0):
     return Kmm + jittermat
 
 
-@Kuu_dispatcher.register(SharedIndependentMof, SharedIndependentMok)
+@Kuu_dispatch
 def _Kuu(feature: SharedIndependentMof, kernel: SharedIndependentMok, jitter=0.0):
     debug_kuu(feature, kernel, jitter)
     Kmm = Kuu(feature.feature, kernel.kernel)  # [M, M]
@@ -38,7 +37,7 @@ def _Kuu(feature: SharedIndependentMof, kernel: SharedIndependentMok, jitter=0.0
     return Kmm + jittermat
 
 
-@Kuu_dispatcher.register(SharedIndependentMof, (SeparateIndependentMok, SeparateMixedMok))
+@Kuu_dispatch
 def _Kuu(feature: SharedIndependentMof,
          kernel: Union[SeparateIndependentMok, SeparateMixedMok], jitter=0.0):
     debug_kuu(feature, kernel, jitter)
@@ -47,7 +46,7 @@ def _Kuu(feature: SharedIndependentMof,
     return Kmm + jittermat
 
 
-@Kuu_dispatcher.register(SeparateIndependentMof, SharedIndependentMok)
+@Kuu_dispatch
 def _Kuu(feature: SeparateIndependentMof, kernel: SharedIndependentMok, jitter=0.0):
     debug_kuu(feature, kernel, jitter)
     Kmm = tf.stack([Kuu(f, kernel.kernel) for f in feature.features], axis=0)  # [L, M, M]
@@ -55,7 +54,7 @@ def _Kuu(feature: SeparateIndependentMof, kernel: SharedIndependentMok, jitter=0
     return Kmm + jittermat
 
 
-@Kuu_dispatcher.register(SeparateIndependentMof, (SeparateIndependentMok, SeparateMixedMok))
+@Kuu_dispatch
 def _Kuu(feature: SeparateIndependentMof,
          kernel: Union[SeparateIndependentMok, SeparateMixedMok], jitter=0.0):
     debug_kuu(feature, kernel, jitter)
@@ -65,7 +64,7 @@ def _Kuu(feature: SeparateIndependentMof,
     return Kmm + jittermat
 
 
-@Kuu_dispatcher.register(MixedKernelSharedMof, SeparateMixedMok)
+@Kuu_dispatch
 def _Kuu(feature: MixedKernelSharedMof, kernel: SeparateMixedMok, jitter=0.0):
     debug_kuu(feature, kernel, jitter)
     Kmm = tf.stack([Kuu(feature.feature, k) for k in kernel.kernels], axis=0)  # [L, M, M]

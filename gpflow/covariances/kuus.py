@@ -1,24 +1,18 @@
 import tensorflow as tf
 
-from gpflow.util import Register
+from .dispatch import Kuu_dispatch
 from ..features import InducingPoints, Multiscale
 from ..kernels import Kernel, RBF
-from .dispatch import Kuu_dispatcher
 
 
-def Kuu(feature: InducingPoints, kernel: Kernel, jitter=0.0):
-    kuu_fn = Kuu_dispatcher.registered_fn(type(feature), type(kernel))
-    return kuu_fn(feature, kernel, jitter)
-
-
-@Kuu_dispatcher.register(InducingPoints, Kernel)
+@Kuu_dispatch
 def _Kuu(feature: InducingPoints, kernel: Kernel, jitter=0.0):
     Kzz = kernel(feature.Z)
     Kzz += jitter * tf.eye(len(feature), dtype=Kzz.dtype)
     return Kzz
 
 
-@Kuu_dispatcher.register(Multiscale, RBF)
+@Kuu_dispatch
 def _Kuu(feature: Multiscale, kernel: RBF, jitter=0.0):
     Zmu, Zlen = kernel.slice(feature.Z, feature.scales)
     idlengthscale2 = tf.square(kernel.lengthscale + Zlen)

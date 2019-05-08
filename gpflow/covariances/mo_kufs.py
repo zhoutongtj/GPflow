@@ -2,8 +2,7 @@ from typing import Union
 
 import tensorflow as tf
 
-from .dispatch import Kuf_dispatcher
-from .kufs import Kuf
+from .dispatch import Kuf_dispatch, Kuf
 
 from ..features import (InducingPoints, MixedKernelSeparateMof,
                         MixedKernelSharedMof, SeparateIndependentMof,
@@ -22,7 +21,7 @@ def debug_kuf(feature, kernel):
         kernel.__class__.__name__))
 
 
-@Kuf_dispatcher.register(InducingPoints, Mok)
+@Kuf_dispatch
 def _Kuf(feature: InducingPoints,
          kernel: Mok,
          Xnew: tf.Tensor):
@@ -30,7 +29,7 @@ def _Kuf(feature: InducingPoints,
     return kernel(feature.Z, Xnew, full=True, full_output_cov=True)  # [M, P, N, P]
 
 
-@Kuf_dispatcher.register(SharedIndependentMof, SharedIndependentMok)
+@Kuf_dispatch
 def _Kuf(feature: SharedIndependentMof,
          kernel: SharedIndependentMok,
          Xnew: tf.Tensor):
@@ -38,7 +37,7 @@ def _Kuf(feature: SharedIndependentMof,
     return Kuf(feature.feature, kernel.kernel, Xnew)  # [M, N]
 
 
-@Kuf_dispatcher.register(SeparateIndependentMof, SharedIndependentMok)
+@Kuf_dispatch
 def _Kuf(feature: SeparateIndependentMof,
          kernel: SharedIndependentMok,
          Xnew: tf.Tensor):
@@ -46,7 +45,7 @@ def _Kuf(feature: SeparateIndependentMof,
     return tf.stack([Kuf(f, kernel.kernel, Xnew) for f in feature.features], axis=0)  # [L, M, N]
 
 
-@Kuf_dispatcher.register(SharedIndependentMof, SeparateIndependentMok)
+@Kuf_dispatch
 def _Kuf(feature: SharedIndependentMof,
          kernel: SeparateIndependentMok,
          Xnew: tf.Tensor):
@@ -54,7 +53,7 @@ def _Kuf(feature: SharedIndependentMof,
     return tf.stack([Kuf(feature.feature, k, Xnew) for k in kernel.kernels], axis=0)  # [L, M, N]
 
 
-@Kuf_dispatcher.register(SeparateIndependentMof, SeparateIndependentMok)
+@Kuf_dispatch
 def _Kuf(feature: SeparateIndependentMof,
          kernel: SeparateIndependentMok,
          Xnew: tf.Tensor):
@@ -63,17 +62,17 @@ def _Kuf(feature: SeparateIndependentMof,
     return tf.stack(Kufs, axis=0)  # [L, M, N]
 
 
-@Kuf_dispatcher.register((SeparateIndependentMof, SharedIndependentMof), SeparateMixedMok)
+@Kuf_dispatch
 def _Kuf(feature: Union[SeparateIndependentMof, SharedIndependentMof],
          kernel: SeparateMixedMok,
          Xnew: tf.Tensor):
     debug_kuf(feature, kernel)
-    kuf_impl = Kuf_dispatcher.registered_fn(type(feature), SeparateIndependentMok)
+    kuf_impl = Kuf_dispatch.registered_function(type(feature), SeparateIndependentMok)
     K = tf.transpose(kuf_impl(feature, kernel, Xnew), [1, 0, 2])  # [M, L, N]
     return K[:, :, :, None] * tf.transpose(kernel.W)[None, :, None, :]  # [M, L, N, P]
 
 
-@Kuf_dispatcher.register(MixedKernelSharedMof, SeparateMixedMok)
+@Kuf_dispatch
 def _Kuf(feature: MixedKernelSharedMof,
          kernel: SeparateIndependentMok,
          Xnew: tf.Tensor):
@@ -81,9 +80,10 @@ def _Kuf(feature: MixedKernelSharedMof,
     return tf.stack([Kuf(feature.feature, k, Xnew) for k in kernel.kernels], axis=0)  # [L, M, N]
 
 
-@Kuf_dispatcher.register(MixedKernelSeparateMof, SeparateMixedMok)
-def _Kuf(feature, kernel, Xnew):
+@Kuf_dispatch
+def _Kuf(feature: MixedKernelSeparateMof,
+         kernel: SeparateMixedMok,
+         Xnew):
     debug_kuf(feature, kernel)
     return tf.stack([Kuf(f, k, Xnew) for f, k in zip(feature.features, kernel.kernels)],
-                    axis=0)  # [
-    # L, M, N]
+                    axis=0)  # [L, M, N]

@@ -1,3 +1,3 @@
-from . import mo_kufs, mo_kuus
-from .kufs import Kuf
-from .kuus import Kuu
+from . import mo_kufs, mo_kuus, kufs, kuus
+from .dispatch import Kuf, Kuu
+
