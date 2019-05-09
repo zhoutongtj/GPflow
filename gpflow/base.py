@@ -51,9 +51,6 @@ class Module(tf.Module):
                 params_list.extend(submodule_params)
         return params_list
 
-    def __str__(self):
-        return print_summary(self)
-
 
 class Parameter(tf.Module):
     def __init__(self,
