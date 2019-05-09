@@ -108,8 +108,9 @@ class Dispatch:
         argtype_keys = cross_product(argtypes)
         for argkey in argtype_keys:
             if argkey in self._storage_dict:
-                # Print that already used by other combination
-                continue
+                raise ValueError("%s with argument types %s has already been registered to: %s"
+                                 % (self.name, (item.__name__ for item in argkey),
+                                    self._storage_dict[argkey]))
             self._storage_dict[argkey] = func
 
     def _register_using_specified_types(self, kwargs, func: Callable, use_ancestors=True):
