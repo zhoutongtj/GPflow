@@ -189,7 +189,4 @@ def extend_with_ancestors(argtypes: List[Union[Type, List[Type]]]):
 
 
 def ranking_criteria(types, hierarchies):
-    rank = 0
-    for i, arg_type in enumerate(types):
-        rank += hierarchies[i].index(arg_type)
-    return rank
+    return sum(map(lambda x: x[1].index(x[0]), zip(types, hierarchies)))

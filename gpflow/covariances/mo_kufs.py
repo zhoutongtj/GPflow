@@ -74,7 +74,7 @@ def _Kuf(feature: Union[SeparateIndependentMof, SharedIndependentMof],
 
 @Kuf_dispatch
 def _Kuf(feature: MixedKernelSharedMof,
-         kernel: SeparateIndependentMok,
+         kernel: SeparateMixedMok,
          Xnew: tf.Tensor):
     debug_kuf(feature, kernel)
     return tf.stack([Kuf(feature.feature, k, Xnew) for k in kernel.kernels], axis=0)  # [L, M, N]
