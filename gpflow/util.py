@@ -139,7 +139,7 @@ def print_summary(module):
         param.read_value().shape, param.dtype.name,
         _shorten_array(param.read_value().numpy())
     ] for param_path, param in module.parameter_list()]
-    return tabulate(column_values, headers=column_names, tablefmt='fancy_grid')
+    return print(tabulate(column_values, headers=column_names, tablefmt='fancy_grid'))
 
 
 def _shorten_array(array):
