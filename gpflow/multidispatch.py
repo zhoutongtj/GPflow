@@ -135,6 +135,11 @@ def valid_dispatch_argspecs(specs: DispatchArgspecs):
                 isinstance(spec[1], int) and \
                 len(spec) == 2:
             valid_specs.append(tuple(spec))
+        elif isinstance(spec, (list, tuple)) and \
+                isinstance(spec[0], list) and \
+                isinstance(spec[1], int) and \
+                len(spec) == 2:
+            valid_specs.extend([(arg_name, spec[1]) for arg_name in spec[0]])
         else:
             raise TypeError(f"Not supported dispatcher specification: '{spec}'")
     return valid_specs

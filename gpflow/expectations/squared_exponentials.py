@@ -1,17 +1,18 @@
+from typing import Union
+
 import tensorflow as tf
 
-from .dispatch import expectation_dispatcher
+from .dispatch import expectation_dispatch, expectation
 from .. import kernels
 from .. import mean_functions as mfn
 from ..features import InducingPoints
 from ..probability_distributions import (DiagonalGaussian, Gaussian,
                                          MarkovGaussian)
 from ..util import NoneType, default_float
-from .expectations import expectation
 
 
-@expectation_dispatcher.register(Gaussian, kernels.RBF, NoneType, NoneType, NoneType)
-def _E(p, kernel, _, __, ___, nghp=None):
+@expectation_dispatch
+def _E(p: Gaussian, kernel: kernels.RBF, _: NoneType, __: NoneType, ___: NoneType, nghp=None):
     """
     Compute the expectation:
     <diag(K_{X, X})>_p(X)
@@ -22,8 +23,9 @@ def _E(p, kernel, _, __, ___, nghp=None):
     return kernel(p.mu, full=False)
 
 
-@expectation_dispatcher.register(Gaussian, kernels.RBF, InducingPoints, NoneType, NoneType)
-def _E(p, kernel, feature, _, __, nghp=None):
+@expectation_dispatch
+def _E(p: Gaussian, kernel: kernels.RBF, feature: InducingPoints,
+       __: NoneType, ___: NoneType, nghp=None):
     """
     Compute the expectation:
     <K_{X, Z}>_p(X)
@@ -56,8 +58,9 @@ def _E(p, kernel, feature, _, __, nghp=None):
     return kernel.variance * (determinants[:, None] * exponent_mahalanobis)
 
 
-@expectation_dispatcher.register(Gaussian, mfn.Identity, NoneType, kernels.RBF, InducingPoints)
-def _E(p, mean, _, kernel, feature, nghp=None):
+@expectation_dispatch
+def _E(p: Gaussian, mean: mfn.Identity, _: NoneType, kernel: kernels.RBF,
+       feature: InducingPoints, nghp=None):
     """
     Compute the expectation:
     expectation[n] = <x_n K_{x_n, Z}>_p(x_n)
@@ -92,8 +95,9 @@ def _E(p, mean, _, kernel, feature, nghp=None):
                             exponent_mahalanobis)[:, None, :] * non_exponent_term
 
 
-@expectation_dispatcher.register(MarkovGaussian, mfn.Identity, NoneType, kernels.RBF, InducingPoints)
-def _E(p, mean, _, kernel, feature, nghp=None):
+@expectation_dispatch
+def _E(p: MarkovGaussian, mean: mfn.Identity, _: NoneType, kernel: kernels.RBF,
+       feature: InducingPoints, nghp=None):
     """
     Compute the expectation:
     expectation[n] = <x_{n+1} K_{x_n, Z}>_p(x_{n:n+1})
@@ -128,9 +132,9 @@ def _E(p, mean, _, kernel, feature, nghp=None):
                             exponent_mahalanobis)[:, None, :] * non_exponent_term
 
 
-@expectation_dispatcher.register((Gaussian, DiagonalGaussian), kernels.RBF, InducingPoints,
-                               kernels.RBF, InducingPoints)
-def _E(p, kern1, feat1, kern2, feat2, nghp=None):
+@expectation_dispatch
+def _E(p: Union[Gaussian, DiagonalGaussian], kern1: kernels.RBF, feat1: InducingPoints,
+       kern2: kernels.RBF, feat2: InducingPoints, nghp=None):
     """
     Compute the expectation:
     expectation[n] = <Ka_{Z1, x_n} Kb_{x_n, Z2}>_p(x_n)

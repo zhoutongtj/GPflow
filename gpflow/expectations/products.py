@@ -2,16 +2,16 @@ from functools import reduce
 
 import tensorflow as tf
 
-from .dispatch import expectation_dispatcher
+from .dispatch import expectation_dispatch, expectation
 from .. import kernels
 from ..features import InducingPoints
 from ..probability_distributions import DiagonalGaussian
 from ..util import NoneType
-from .expectations import expectation
 
 
-@expectation_dispatcher.register(DiagonalGaussian, kernels.Product, NoneType, NoneType, NoneType)
-def _E(p, kernel, _, __, ___, nghp=None):
+@expectation_dispatch
+def _E(p: DiagonalGaussian, kernel: kernels.Product,
+       _: NoneType, __: NoneType, ___: NoneType, nghp=None):
     """
     Compute the expectation:
     <\HadamardProd_i diag(Ki_{X[:, active_dims_i], X[:, active_dims_i]})>_p(X)
@@ -28,9 +28,9 @@ def _E(p, kernel, _, __, ___, nghp=None):
     return reduce(tf.multiply, exps)
 
 
-@expectation_dispatcher.register(DiagonalGaussian, kernels.Product, InducingPoints,
-                                 NoneType, NoneType)
-def _E(p, kernel, feature, __, ___, nghp=None):
+@expectation_dispatch
+def _E(p: DiagonalGaussian, kernel: kernels.Product, feature: InducingPoints,
+       __: NoneType, ___: NoneType, nghp=None):
     """
     Compute the expectation:
     <\HadamardProd_i Ki_{X[:, active_dims_i], Z[:, active_dims_i]}>_p(X)
@@ -47,9 +47,9 @@ def _E(p, kernel, feature, __, ___, nghp=None):
     return reduce(tf.multiply, exps)
 
 
-@expectation_dispatcher.register(DiagonalGaussian, kernels.Product, InducingPoints,
-                                 kernels.Product, InducingPoints)
-def _E(p, kern1, feat1, kern2, feat2, nghp=None):
+@expectation_dispatch
+def _E(p: DiagonalGaussian, kern1: kernels.Product, feat1: InducingPoints, kern2: kernels.Product,
+       feat2: InducingPoints, nghp=None):
     """
     Compute the expectation:
     expectation[n] = < prodK_{Z, x_n} prodK_{x_n, Z} >_p(x_n)

@@ -1,17 +1,17 @@
 # noqa: F811
+from typing import Union
 
 import tensorflow as tf
 
-from .dispatch import expectation_dispatcher
+from .dispatch import expectation_dispatch, expectation
 from .. import mean_functions as mfn
 from ..probability_distributions import Gaussian
 from ..util import NoneType
-from .expectations import expectation
 
 
-@expectation_dispatcher.register(Gaussian, mfn.Linear, NoneType, NoneType, NoneType)
-@expectation_dispatcher.register(Gaussian, mfn.Constant, NoneType, NoneType, NoneType)
-def _E(p, mean, _, __, ___, nghp=None):
+@expectation_dispatch
+def _E(p: Gaussian, mean: Union[mfn.Linear, mfn.Constant],
+       _: NoneType, __: NoneType, ___: NoneType, nghp=None):
     """
     Compute the expectation:
     <m(X)>_p(X)
@@ -22,8 +22,8 @@ def _E(p, mean, _, __, ___, nghp=None):
     return mean(p.mu)
 
 
-@expectation_dispatcher.register(Gaussian, mfn.Constant, NoneType, mfn.Constant, NoneType)
-def _E(p, mean1, _, mean2, __, nghp=None):
+@expectation_dispatch
+def _E(p: Gaussian, mean1: mfn.Constant, _: NoneType, mean2: mfn.Constant, __: NoneType, nghp=None):
     """
     Compute the expectation:
     expectation[n] = <m1(x_n)^T m2(x_n)>_p(x_n)
@@ -34,8 +34,9 @@ def _E(p, mean1, _, mean2, __, nghp=None):
     return mean1(p.mu)[:, :, None] * mean2(p.mu)[:, None, :]
 
 
-@expectation_dispatcher.register(Gaussian, mfn.Constant, NoneType, mfn.MeanFunction, NoneType)
-def _E(p, mean1, _, mean2, __, nghp=None):
+@expectation_dispatch
+def _E(p: Gaussian, mean1: mfn.Constant, _: NoneType, mean2: mfn.MeanFunction,
+       __: NoneType, nghp=None):
     """
     Compute the expectation:
     expectation[n] = <m1(x_n)^T m2(x_n)>_p(x_n)
@@ -48,8 +49,9 @@ def _E(p, mean1, _, mean2, __, nghp=None):
     return mean1(p.mu)[:, :, None] * e_mean2[:, None, :]
 
 
-@expectation_dispatcher.register(Gaussian, mfn.MeanFunction, NoneType, mfn.Constant, NoneType)
-def _E(p, mean1, _, mean2, __, nghp=None):
+@expectation_dispatch
+def _E(p: Gaussian, mean1: mfn.MeanFunction, _: NoneType, mean2: mfn.Constant,
+       __: NoneType, nghp=None):
     """
     Compute the expectation:
     expectation[n] = <m1(x_n)^T m2(x_n)>_p(x_n)
@@ -62,8 +64,8 @@ def _E(p, mean1, _, mean2, __, nghp=None):
     return e_mean1[:, :, None] * mean2(p.mu)[:, None, :]
 
 
-@expectation_dispatcher.register(Gaussian, mfn.Identity, NoneType, mfn.Identity, NoneType)
-def _E(p, mean1, _, mean2, __, nghp=None):
+@expectation_dispatch
+def _E(p: Gaussian, mean1: mfn.Identity, _: NoneType, mean2: mfn.Identity, __: NoneType, nghp=None):
     """
     Compute the expectation:
     expectation[n] = <m1(x_n)^T m2(x_n)>_p(x_n)
@@ -74,8 +76,8 @@ def _E(p, mean1, _, mean2, __, nghp=None):
     return p.cov + (p.mu[:, :, None] * p.mu[:, None, :])
 
 
-@expectation_dispatcher.register(Gaussian, mfn.Identity, NoneType, mfn.Linear, NoneType)
-def _E(p, mean1, _, mean2, __, nghp=None):
+@expectation_dispatch
+def _E(p: Gaussian, mean1: mfn.Identity, _: NoneType, mean2: mfn.Linear, __: NoneType, nghp=None):
     """
     Compute the expectation:
     expectation[n] = <m1(x_n)^T m2(x_n)>_p(x_n)
@@ -92,8 +94,8 @@ def _E(p, mean1, _, mean2, __, nghp=None):
     return e_xxt_A + e_x_bt
 
 
-@expectation_dispatcher.register(Gaussian, mfn.Linear, NoneType, mfn.Identity, NoneType)
-def _E(p, mean1, _, mean2, __, nghp=None):
+@expectation_dispatch
+def _E(p: Gaussian, mean1: mfn.Linear, _: NoneType, mean2: mfn.Identity, __: NoneType, nghp=None):
     """
     Compute the expectation:
     expectation[n] = <m1(x_n)^T m2(x_n)>_p(x_n)
@@ -104,14 +106,15 @@ def _E(p, mean1, _, mean2, __, nghp=None):
     """
     N = tf.shape(p.mu)[0]
     e_xxt = p.cov + (p.mu[:, :, None] * p.mu[:, None, :])  # NxDxD
-    e_A_xxt = tf.linalg.matmul(tf.tile(mean1.A[None, ...], (N, 1, 1)), e_xxt, transpose_a=True)  # NxQxD
+    e_A_xxt = tf.linalg.matmul(tf.tile(mean1.A[None, ...], (N, 1, 1)), e_xxt,
+                               transpose_a=True)  # NxQxD
     e_b_xt = mean1.b[None, :, None] * p.mu[:, None, :]  # NxQxD
 
     return e_A_xxt + e_b_xt
 
 
-@expectation_dispatcher.register(Gaussian, mfn.Linear, NoneType, mfn.Linear, NoneType)
-def _E(p, mean1, _, mean2, __, nghp=None):
+@expectation_dispatch
+def _E(p: Gaussian, mean1: mfn.Linear, _: NoneType, mean2: mfn.Linear, __: NoneType, nghp=None):
     """
     Compute the expectation:
     expectation[n] = <m1(x_n)^T m2(x_n)>_p(x_n)

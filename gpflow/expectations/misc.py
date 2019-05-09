@@ -1,22 +1,21 @@
+from typing import Union
+
 import tensorflow as tf
 
-from .dispatch import expectation_dispatcher
+from .dispatch import expectation_dispatch, expectation
 from .. import kernels
 from .. import mean_functions as mfn
 from ..features import InducingFeature, InducingPoints
 from ..probability_distributions import (DiagonalGaussian, Gaussian,
                                          MarkovGaussian)
 from ..util import NoneType
-from .expectations import expectation
 
 
 # ================ exKxz transpose and mean function handling =================
 
-@expectation_dispatcher.register(MarkovGaussian, mfn.Identity, NoneType,
-                                 kernels.Linear, InducingPoints)
-@expectation_dispatcher.register(Gaussian, mfn.Identity, NoneType,
-                                 kernels.Linear, InducingPoints)
-def _E(p, mean, _, kernel, feature, nghp=None):
+@expectation_dispatch
+def _E(p: Union[MarkovGaussian, Gaussian], mean: mfn.Identity, _: NoneType, kernel: kernels.Linear,
+       feature: InducingPoints, nghp=None):
     """
     Compute the expectation:
     expectation[n] = <x_n K_{x_n, Z}>_p(x_n)
@@ -28,11 +27,9 @@ def _E(p, mean, _, kernel, feature, nghp=None):
     return tf.linalg.adjoint(expectation(p, (kernel, feature), mean))
 
 
-@expectation_dispatcher.register(MarkovGaussian, kernels.Kernel, InducingFeature,
-                                 mfn.MeanFunction, NoneType)
-@expectation_dispatcher.register(Gaussian, kernels.Kernel, InducingFeature,
-                                 mfn.MeanFunction, NoneType)
-def _E(p, kernel, feature, mean, _, nghp=None):
+@expectation_dispatch
+def _E(p: Union[MarkovGaussian, Gaussian], kernel: kernels.Kernel, feature: InducingFeature,
+       mean: mfn.MeanFunction, _: NoneType, nghp=None):
     """
     Compute the expectation:
     expectation[n] = <K_{Z, x_n} m(x_n)>_p(x_n)
@@ -43,8 +40,9 @@ def _E(p, kernel, feature, mean, _, nghp=None):
     return tf.linalg.adjoint(expectation(p, mean, (kernel, feature), nghp=nghp))
 
 
-@expectation_dispatcher.register(Gaussian, mfn.Constant, NoneType, kernels.Kernel, InducingPoints)
-def _E(p, constant_mean, _, kernel, feature, nghp=None):
+@expectation_dispatch
+def _E(p: Gaussian, constant_mean: mfn.Constant, _: NoneType, kernel: kernels.Kernel,
+       feature: InducingPoints, nghp=None):
     """
     Compute the expectation:
     expectation[n] = <m(x_n)^T K_{x_n, Z}>_p(x_n)
@@ -59,8 +57,9 @@ def _E(p, constant_mean, _, kernel, feature, nghp=None):
     return c[..., None] * eKxz[:, None, :]
 
 
-@expectation_dispatcher.register(Gaussian, mfn.Linear, NoneType, kernels.Kernel, InducingPoints)
-def _E(p, linear_mean, _, kernel, feature, nghp=None):
+@expectation_dispatch
+def _E(p: Gaussian, linear_mean: mfn.Linear, _: NoneType, kernel: kernels.Kernel,
+       feature: InducingPoints, nghp=None):
     """
     Compute the expectation:
     expectation[n] = <m(x_n)^T K_{x_n, Z}>_p(x_n)
@@ -79,8 +78,9 @@ def _E(p, linear_mean, _, kernel, feature, nghp=None):
     return eAxKxz + ebKxz
 
 
-@expectation_dispatcher.register(Gaussian, mfn.Identity, NoneType, kernels.Kernel, InducingPoints)
-def _E(p, identity_mean, _, kernel, feature, nghp=None):
+@expectation_dispatch
+def _E(p: Gaussian, identity_mean: mfn.Identity, _: NoneType, kernel: kernels.Kernel,
+       feature: InducingPoints, nghp=None):
     """
     This prevents infinite recursion for kernels that don't have specific
     implementations of _expectation(p, identity_mean, None, kernel, feature).
@@ -96,20 +96,18 @@ def _E(p, identity_mean, _, kernel, feature, nghp=None):
 # Catching missing DiagonalGaussian implementations by converting to full Gaussian:
 
 
-@expectation_dispatcher.register(DiagonalGaussian,
-                                 object, (InducingFeature, NoneType),
-                                 object, (InducingFeature, NoneType))
-def _E(p, obj1, feat1, obj2, feat2, nghp=None):
+@expectation_dispatch
+def _E(p: DiagonalGaussian, obj1: object, feat1: Union[InducingFeature, NoneType],
+       obj2: object, feat2: Union[InducingFeature, NoneType], nghp=None):
     gaussian = Gaussian(p.mu, tf.linalg.diag(p.cov))
     return expectation(gaussian, (obj1, feat1), (obj2, feat2), nghp=nghp)
 
 
 # Catching missing MarkovGaussian implementations by converting to Gaussian (when indifferent):
 
-@expectation_dispatcher.register(MarkovGaussian,
-                                 object, (InducingFeature, NoneType),
-                                 object, (InducingFeature, NoneType))
-def _E(p, obj1, feat1, obj2, feat2, nghp=None):
+@expectation_dispatch
+def _E(p: MarkovGaussian, obj1: object, feat1: Union[InducingFeature, NoneType],
+       obj2: object, feat2: Union[InducingFeature, NoneType], nghp=None):
     """
     Nota Bene: if only one object is passed, obj1 is
     associated with x_n, whereas obj2 with x_{n+1}

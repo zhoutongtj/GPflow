@@ -1,7 +1,8 @@
+from typing import Union
+
 import tensorflow as tf
 
-from .dispatch import expectation_dispatcher
-from .expectations import expectation
+from .dispatch import expectation_dispatch, expectation
 from .. import kernels
 from .. import mean_functions as mfn
 from ..features import InducingPoints
@@ -10,8 +11,9 @@ from ..probability_distributions import (DiagonalGaussian, Gaussian,
 from ..util import NoneType
 
 
-@expectation_dispatcher.register(Gaussian, kernels.Linear, NoneType, NoneType, NoneType)
-def _E(p, kernel, _, __, ___, nghp=None):
+@expectation_dispatch
+def _E(p: Gaussian, kernel: kernels.Linear,
+       _: NoneType, __: NoneType, ___: NoneType, nghp=None):
     """
     Compute the expectation:
     <diag(K_{X, X})>_p(X)
@@ -26,8 +28,9 @@ def _E(p, kernel, _, __, ___, nghp=None):
     return tf.reduce_sum(kernel.variance * (tf.linalg.diag_part(Xcov) + Xmu ** 2), 1)
 
 
-@expectation_dispatcher.register(Gaussian, kernels.Linear, InducingPoints, NoneType, NoneType)
-def _E(p, kernel, feature, _, __, nghp=None):
+@expectation_dispatch
+def _E(p: Gaussian, kernel: kernels.Linear, feature: InducingPoints,
+       _: NoneType, __: NoneType, nghp=None):
     """
     Compute the expectation:
     <K_{X, Z}>_p(X)
@@ -41,8 +44,9 @@ def _E(p, kernel, feature, _, __, nghp=None):
     return tf.linalg.matmul(Xmu, Z * kernel.variance, transpose_b=True)
 
 
-@expectation_dispatcher.register(Gaussian, kernels.Linear, InducingPoints, mfn.Identity, NoneType)
-def _E(p, kernel, feature, mean, _, nghp=None):
+@expectation_dispatch
+def _E(p: Gaussian, kernel: kernels.Linear, feature: InducingPoints, mean: mfn.Identity,
+       _: NoneType, nghp=None):
     """
     Compute the expectation:
     expectation[n] = <K_{Z, x_n} x_n^T>_p(x_n)
@@ -58,9 +62,9 @@ def _E(p, kernel, feature, mean, _, nghp=None):
     return tf.linalg.matmul(tiled_Z, Xcov + (Xmu[..., None] * Xmu[:, None, :]))
 
 
-@expectation_dispatcher.register(MarkovGaussian, kernels.Linear, InducingPoints,
-                                 mfn.Identity, NoneType)
-def _E(p, kernel, feature, mean, _, nghp=None):
+@expectation_dispatch
+def _E(p: MarkovGaussian, kernel: kernels.Linear, feature: InducingPoints, mean: mfn.Identity,
+       _: NoneType, nghp=None):
     """
     Compute the expectation:
     expectation[n] = <K_{Z, x_n} x_{n+1}^T>_p(x_{n:n+1})
@@ -78,11 +82,12 @@ def _E(p, kernel, feature, mean, _, nghp=None):
     return tf.linalg.matmul(tiled_Z, eXX)
 
 
-@expectation_dispatcher.register(Gaussian, kernels.Linear, InducingPoints,
-                                 kernels.Linear, InducingPoints)
-@expectation_dispatcher.register(DiagonalGaussian, kernels.Linear, InducingPoints,
-                                 kernels.Linear, InducingPoints)
-def _E(p, kern1, feat1, kern2, feat2, nghp=None):
+@expectation_dispatch
+def _E(p: Union[Gaussian, DiagonalGaussian],
+       kern1: kernels.Linear,
+       feat1: InducingPoints,
+       kern2: kernels.Linear,
+       feat2: InducingPoints, nghp=None):
     """
     Compute the expectation:
     expectation[n] = <Ka_{Z1, x_n} Kb_{x_n, Z2}>_p(x_n)
@@ -93,7 +98,8 @@ def _E(p, kern1, feat1, kern2, feat2, nghp=None):
 
     :return: NxMxM
     """
-    if kern1.on_separate_dims(kern2) and isinstance(p, DiagonalGaussian):  # no joint expectations required
+    if kern1.on_separate_dims(kern2) and isinstance(p,
+                                                    DiagonalGaussian):  # no joint expectations required
         eKxz1 = expectation(p, (kern1, feat1))
         eKxz2 = expectation(p, (kern2, feat2))
         return eKxz1[:, :, None] * eKxz2[:, None, :]

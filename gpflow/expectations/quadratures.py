@@ -1,7 +1,9 @@
+from typing import Union
+
 import numpy as np
 import tensorflow as tf
 
-from .dispatch import quadrature_expectation_dispatcher
+from .dispatch import quadrature_expectation_dispatch, quadrature_expectation
 from .. import kernels
 from .. import mean_functions as mfn
 from ..covariances import Kuf
@@ -10,7 +12,6 @@ from ..probability_distributions import (DiagonalGaussian, Gaussian,
                                          MarkovGaussian)
 from ..quadrature import mvnquad
 from ..util import NoneType, create_logger
-from .expectations import quadrature_expectation
 
 logger = create_logger()
 
@@ -35,10 +36,10 @@ def get_eval_func(obj, feature, slice=None):
     raise NotImplementedError()
 
 
-@quadrature_expectation_dispatcher.register((Gaussian, DiagonalGaussian),
-    object, (InducingFeature, NoneType),
-    object, (InducingFeature, NoneType))
-def _quadrature_expectation(p, obj1, feature1, obj2, feature2, nghp=None):
+@quadrature_expectation_dispatch
+def _quadrature_expectation(p: Union[Gaussian, DiagonalGaussian], obj1: object,
+                            feature1: Union[InducingFeature, NoneType], obj2: object,
+                            feature2: Union[InducingFeature, NoneType], nghp=None):
     """
     General handling of quadrature expectations for Gaussians and DiagonalGaussians
     Fallback method for missing analytic expectations
@@ -75,11 +76,10 @@ def _quadrature_expectation(p, obj1, feature1, obj2, feature2, nghp=None):
     return mvnquad(eval_func, p.mu, cov, nghp)
 
 
-@quadrature_expectation_dispatcher.register(
-    MarkovGaussian,
-    object, (InducingFeature, NoneType),
-    object, (InducingFeature, NoneType))
-def _quadrature_expectation(p, obj1, feature1, obj2, feature2, nghp=None):
+@quadrature_expectation_dispatch
+def _quadrature_expectation(p: MarkovGaussian, obj1: object,
+                            feature1: Union[InducingFeature, NoneType], obj2: object,
+                            feature2: Union[InducingFeature, NoneType], nghp=None):
     """
     Handling of quadrature expectations for Markov Gaussians (useful for time series)
     Fallback method for missing analytic expectations wrt Markov Gaussians
@@ -95,10 +95,12 @@ def _quadrature_expectation(p, obj1, feature1, obj2, feature2, nghp=None):
     if obj2 is None:
         def eval_func(x):
             return get_eval_func(obj1, feature1)(x)
+
         mu, cov = p.mu[:-1], p.cov[0, :-1]  # cross covariances are not needed
     elif obj1 is None:
         def eval_func(x):
             return get_eval_func(obj2, feature2)(x)
+
         mu, cov = p.mu[1:], p.cov[0, 1:]  # cross covariances are not needed
     else:
         def eval_func(x):
