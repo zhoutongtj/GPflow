@@ -12,14 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 # flake8: noqa
 
-from . import (conditionals, expectations, features, kernels, likelihoods,
-               logdensities, models, optimizers, probability_distributions,
-               util)
-
-from ._settings import SETTINGS as settings
+from . import (conditionals, expectations, features, kernels, likelihoods, logdensities, models, optimizers,
+               probability_distributions, util)
 from ._version import __version__
 from .base import Parameter, positive, triangular
-# from .util import default_float, default_jitter
+from .util import default_float, default_jitter
