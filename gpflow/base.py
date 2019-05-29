@@ -34,15 +34,14 @@ class Module(tf.Module):
     def trainable_parameters(self):
         return self._flatten(predicate=_IS_TRAINABLE_PARAMETER)
 
-    def parameter_list(self, predicate=_IS_PARAMETER, prefix=None):
-
+    def parameter_list(self, prefix=None):
         prefix = self.__class__.__name__ if prefix is None else prefix
         params_list = []
         module_dict = vars(self)
         for key, submodule in module_dict.items():
             if key in self._TF_MODULE_IGNORED_PROPERTIES:
                 continue
-            if isinstance(submodule, Parameter) and predicate(submodule):
+            if isinstance(submodule, Parameter):
                 params_list.append(('%s.%s' % (prefix, key), submodule))
             elif isinstance(submodule, tf.Variable):
                 params_list.append(('%s.%s' % (prefix, key), submodule))

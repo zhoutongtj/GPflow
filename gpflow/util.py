@@ -1,6 +1,6 @@
 import copy
 import logging
-from typing import Callable, List, Union
+from typing import Callable, List, Optional, Union
 
 import numpy as np
 import tensorflow as tf
@@ -93,7 +93,7 @@ def training_loop(closure: Callable[..., tf.Tensor],
 
     :param closure: Callable that constructs a loss function based on data and model being trained
     :param optimizer: tf.optimizers or tf.keras.optimizers that updates variables by applying the
-    corresponding loss gradients
+        corresponding loss gradients. Adam is a default optimizer with default settings.
     :param var_list: List of model variables to be learnt during training
     :param maxiter: Maximum number of
     :return:
@@ -126,33 +126,49 @@ def broadcasting_elementwise(op, a, b):
     return tf.reshape(flatres, tf.concat([tf.shape(a), tf.shape(b)], 0))
 
 
-def print_summary(module):
+def print_summary(module: tf.Module):
+    """
+    Prints a summary of the Parameters and Variables contained in a Module and its components.
+    Properties displayed include: name (or address), class, transformation used, if it is
+    trainable, shape, dtype and value.
+    """
     column_names = ['name', 'class', 'transform', 'trainable', 'shape', 'dtype', 'value']
 
     def is_param_with_transform(x):
         return hasattr(x, 'transform') and x.transform is not None
 
-    column_values = [[
-        param_path, param.__class__.__name__,
-        param.transform.__class__.__name__ if is_param_with_transform(param) else 'None',
-        param.trainable,
-        param.read_value().shape, param.dtype.name,
-        _shorten_array(param.read_value().numpy())
-    ] for param_path, param in module.parameter_list()]
-    return print(tabulate(column_values, headers=column_names, tablefmt='fancy_grid'))
+    column_values = [
+        [param_path, param.__class__.__name__,
+         param.transform.__class__.__name__ if is_param_with_transform(param) else 'None',
+         param.trainable,
+         param.read_value().shape, param.dtype.name,
+         _shorten_array(param.read_value().numpy())
+         ] for param_path, param in module.parameter_list()
+    ]
+    print(tabulate(column_values, headers=column_names, tablefmt='fancy_grid'))
 
 
-def _shorten_array(array):
-    digit_format = {'float_kind': lambda x: "%.4f" % x}
+def _shorten_array(array: np.ndarray, num_decimal_places: int = 4) -> str:
+    """
+    Auxiliary function that returns a single line containing (up to) the first three values of the
+    first row of an array. If the array contains more than one row and/or three columns,
+    this is indicated using ellipsis '...'.
+    :param array: np.ndarray
+    :param num_decimal_places: int, number of decimal places displayed
+    """
+    digit_format = {'float_kind': lambda x: "%.{}f".format(num_decimal_places) % x}
     short_rows = np.array2string(array, max_line_width=30, formatter=digit_format)
     long_rows = np.array2string(array, max_line_width=60, formatter=digit_format)
+    # Add ellipsis if there are more items in the first row
     more_items_first_row = len(short_rows.split('\n')) > len(long_rows.split('\n'))
     first_suffix = ' ... ]' if more_items_first_row else ''
+    # Add ellipsis if there are more columns
     array_str = short_rows.split('...')[0].split('\n')
     more_columns = len(short_rows.split('...')) > 2 or len(short_rows.split('\n')) > 1
     second_suffix = ', ... ' if more_columns else ''
-    first_item_str = array_str[0]
+    # Construct final string joining both parts
+    one_line_array_str = array_str[0] + first_suffix
     array_str = [item for item in array_str[1:] if item != '']
-    second_item_str = ',' + array_str[0] if more_columns and not more_items_first_row else ''
-
-    return first_item_str + first_suffix + second_item_str + second_suffix
+    one_line_array_str += ',' + array_str[0] if more_columns and not more_items_first_row else ''
+    one_line_array_str += second_suffix
+    return one_line_array_str
