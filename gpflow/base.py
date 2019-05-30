@@ -4,9 +4,10 @@ from typing import List, Optional, Tuple, Union
 import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
+from tabulate import tabulate
 from tensorflow.python.ops import array_ops
 
-from .util import default_float
+from .util import default_float, get_str_tensor_value
 
 DType = Union[np.dtype, tf.DType]
 VariableData = Union[List, Tuple, np.ndarray, int, float]
@@ -33,22 +34,6 @@ class Module(tf.Module):
     @property
     def trainable_parameters(self):
         return self._flatten(predicate=_IS_TRAINABLE_PARAMETER)
-
-    def parameter_list(self, prefix=None):
-        prefix = self.__class__.__name__ if prefix is None else prefix
-        params_list = []
-        module_dict = vars(self)
-        for key, submodule in module_dict.items():
-            if key in self._TF_MODULE_IGNORED_PROPERTIES:
-                continue
-            if isinstance(submodule, Parameter):
-                params_list.append(('%s.%s' % (prefix, key), submodule))
-            elif isinstance(submodule, tf.Variable):
-                params_list.append(('%s.%s' % (prefix, key), submodule))
-            elif isinstance(submodule, tf.Module):
-                submodule_params = submodule.parameter_list(prefix='%s.%s' % (prefix, key))
-                params_list.extend(submodule_params)
-        return params_list
 
 
 class Parameter(tf.Module):
@@ -250,3 +235,60 @@ def _to_unconstrained(value: VariableData, transform: Transform) -> tf.Tensor:
     if transform is not None:
         return transform.inverse(value)
     return value
+
+
+def print_summary(module: tf.Module, fmt: str = None):
+    """
+    Prints a summary of the parameters and variables contained in a tf.Module and its components.
+    """
+    fmt = fmt if fmt is not None else "simple"
+    column_names = ['name', 'class', 'transform', 'trainable', 'shape', 'dtype', 'value']
+
+    def get_name(v):
+        return v.__class__.__name__
+
+    def get_transform(v):
+        if hasattr(v, 'transform') and v.transform is not None:
+            return v.transform.__class__.__name__
+        return None
+
+    column_values = [[
+        path,
+        get_name(variable),
+        get_transform(variable),
+        variable.trainable,
+        variable.shape,
+        variable.dtype.name,
+        get_str_tensor_value(variable.numpy())
+    ] for path, variable in get_component_variables(module)]
+
+    print(tabulate(column_values, headers=column_names, tablefmt=fmt))
+
+
+def get_component_variables(module: tf.Module, prefix=None):
+    prefix = module.__class__.__name__ if prefix is None else prefix
+    var_list = []
+    module_dict = vars(module)
+    for key, submodule in module_dict.items():
+        if key in tf.Module()._TF_MODULE_IGNORED_PROPERTIES:
+            continue
+        elif isinstance(submodule, Parameter) or isinstance(submodule, tf.Variable):
+            var_list.append(('%s.%s' % (prefix, key), submodule))
+        elif isinstance(submodule, tf.Module):
+            submodule_var = get_component_variables(submodule, prefix='%s.%s' % (prefix, key))
+            var_list.extend(submodule_var)
+        elif isinstance(submodule, list):
+            for idx, item in enumerate(submodule):
+                item_name = item.__class__.__name__
+                if key in ['_trainable_weights']:
+                    continue
+                elif isinstance(item, tf.Module):
+                    submodule_var = get_component_variables(
+                        item, prefix='%s.%s.%s_%i' % (prefix, key, item_name, idx)
+                    )
+                    var_list.extend(submodule_var)
+                elif isinstance(item, Parameter) or isinstance(item, tf.Variable):
+                    var_list.append(('%s.%s.%s_%i' % (prefix, key, item_name, idx), item))
+
+
+    return var_list
