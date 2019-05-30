@@ -1,6 +1,8 @@
 import copy
 import logging
-from typing import Callable, List, Optional, Union
+import re
+from functools import lru_cache
+from typing import Callable, List, Union
 
 import numpy as np
 import tensorflow as tf
@@ -13,14 +15,11 @@ def create_logger(name=None):
     return logging.getLogger('Temporary Logger Solution')
 
 
-def default_jitter_eye(num_rows: int,
-                       num_columns: int = None,
-                       value: float = None) -> float:
+def default_jitter_eye(num_rows: int, num_columns: int = None, value: float = None) -> float:
     value = default_jitter() if value is None else value
     num_rows = int(num_rows)
     num_columns = int(num_columns) if num_columns is not None else num_columns
-    return tf.eye(num_rows, num_columns=num_columns,
-                  dtype=default_float()) * value
+    return tf.eye(num_rows, num_columns=num_columns, dtype=default_float()) * value
 
 
 def default_jitter() -> float:
@@ -35,9 +34,7 @@ def default_int() -> int:
     return np.int32
 
 
-def leading_transpose(tensor: tf.Tensor,
-                      perm: List[Union[int, type(...)]],
-                      leading_dim: int = 0) -> tf.Tensor:
+def leading_transpose(tensor: tf.Tensor, perm: List[Union[int, type(...)]], leading_dim: int = 0) -> tf.Tensor:
     """
     Transposes tensors with leading dimensions. Leading dimensions in
     permutation list represented via ellipsis `...`.
@@ -126,49 +123,59 @@ def broadcasting_elementwise(op, a, b):
     return tf.reshape(flatres, tf.concat([tf.shape(a), tf.shape(b)], 0))
 
 
-def print_summary(module: tf.Module):
+def print_summary(module: tf.Module, fmt: str = None):
     """
-    Prints a summary of the Parameters and Variables contained in a Module and its components.
-    Properties displayed include: name (or address), class, transformation used, if it is
-    trainable, shape, dtype and value.
+    Prints a summary of the parameters and variables contained in a tf.Module and its components.
     """
+    fmt = fmt if fmt is not None else "simple"
     column_names = ['name', 'class', 'transform', 'trainable', 'shape', 'dtype', 'value']
 
-    def is_param_with_transform(x):
-        return hasattr(x, 'transform') and x.transform is not None
+    def get_name(v):
+        return v.__class__.__name__
 
-    column_values = [
-        [param_path, param.__class__.__name__,
-         param.transform.__class__.__name__ if is_param_with_transform(param) else 'None',
-         param.trainable,
-         param.read_value().shape, param.dtype.name,
-         _shorten_array(param.read_value().numpy())
-         ] for param_path, param in module.parameter_list()
-    ]
-    print(tabulate(column_values, headers=column_names, tablefmt='fancy_grid'))
+    def get_transform(v):
+        if hasattr(v, 'transform') and v.transform is not None:
+            return v.transform.__class__.__name__
+        return None
+
+    column_values = [[
+        path,
+        get_name(variable),
+        get_transform(variable),
+        variable.trainable,
+        variable.shape,
+        variable.dtype.name,
+        get_str_tensor_value(variable.numpy())
+    ] for path, variable in module.parameter_list()]
+
+    print(tabulate(column_values, headers=column_names, tablefmt=fmt))
 
 
-def _shorten_array(array: np.ndarray, num_decimal_places: int = 4) -> str:
-    """
-    Auxiliary function that returns a single line containing (up to) the first three values of the
-    first row of an array. If the array contains more than one row and/or three columns,
-    this is indicated using ellipsis '...'.
-    :param array: np.ndarray
-    :param num_decimal_places: int, number of decimal places displayed
-    """
-    digit_format = {'float_kind': lambda x: "%.{}f".format(num_decimal_places) % x}
-    short_rows = np.array2string(array, max_line_width=30, formatter=digit_format)
-    long_rows = np.array2string(array, max_line_width=60, formatter=digit_format)
-    # Add ellipsis if there are more items in the first row
-    more_items_first_row = len(short_rows.split('\n')) > len(long_rows.split('\n'))
-    first_suffix = ' ... ]' if more_items_first_row else ''
-    # Add ellipsis if there are more columns
-    array_str = short_rows.split('...')[0].split('\n')
-    more_columns = len(short_rows.split('...')) > 2 or len(short_rows.split('\n')) > 1
-    second_suffix = ', ... ' if more_columns else ''
-    # Construct final string joining both parts
-    one_line_array_str = array_str[0] + first_suffix
-    array_str = [item for item in array_str[1:] if item != '']
-    one_line_array_str += ',' + array_str[0] if more_columns and not more_items_first_row else ''
-    one_line_array_str += second_suffix
-    return one_line_array_str
+@lru_cache()
+def _first_three_elements_regexp():
+    num_re = r"[+\-]?(?:0|[1-9]\d*)(?:\.\d*)?(?:[eE][+\-]?\d+)?"
+    pat_re = rf"^(?:(\[+)\s*)?({num_re})(?:\s+({num_re})(?:\s+({num_re}))?)?.*?"
+    return re.compile(pat_re)
+
+
+def get_str_tensor_value(value: np.ndarray):
+    value_str = str(value)
+    if value.size <= 3:
+        return value_str
+
+    max_chars = 500
+    value_str = value_str[:max_chars]
+    regexp = _first_three_elements_regexp()
+    match = regexp.match(value_str)
+    assert match is not None
+    brackets, elem1, elem2, elem3 = match.groups()
+
+    out = f"{elem1}"
+    if elem2 is not None:
+        out = f"{out}{f', {elem2}'}"
+        if elem3 is not None:
+            out = f"{out}{f', {elem3}'}"
+    if brackets is not None:
+        out = f"{brackets}{out}..."
+
+    return out

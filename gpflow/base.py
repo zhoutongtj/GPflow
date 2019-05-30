@@ -6,7 +6,7 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 from tensorflow.python.ops import array_ops
 
-from .util import default_float, print_summary
+from .util import default_float
 
 DType = Union[np.dtype, tf.DType]
 VariableData = Union[List, Tuple, np.ndarray, int, float]
