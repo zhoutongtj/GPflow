@@ -7,7 +7,7 @@ import numpy as np
 import tensorflow as tf
 
 import gpflow
-from gpflow import get_component_variables
+from gpflow.utilities.printing import get_component_variables
 
 import pytest
 

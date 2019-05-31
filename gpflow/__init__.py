@@ -15,8 +15,9 @@
 # flake8: noqa
 
 from . import (conditionals, expectations, features, kernels, likelihoods, logdensities, models, optimizers,
-               probability_distributions, util)
-from ._version import __version__
-from .base import Parameter, positive, triangular, print_summary, get_component_variables
-from .util import default_float, default_jitter
+               probability_distributions, utilities)
+from .base import Parameter, positive, triangular
+from .utilities.defaults import default_float, default_jitter
 
+
+__version__ = "1.9.999"
