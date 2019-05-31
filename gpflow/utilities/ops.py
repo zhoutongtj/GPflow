@@ -62,6 +62,7 @@ def broadcasting_elementwise(op, a, b):
     flatres = op(tf.reshape(a, [-1, 1]), tf.reshape(b, [1, -1]))
     return tf.reshape(flatres, tf.concat([tf.shape(a), tf.shape(b)], 0))
 
+
 def square_distance(X, X2):
     """
     Returns (X - X2ᵀ)²

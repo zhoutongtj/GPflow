@@ -1,9 +1,8 @@
 import numpy as np
 import tensorflow as tf
 
-from ..utilities.ops import broadcasting_elementwise, square_distance
-from ..utilities.defaults import default_float
 from ..base import Parameter, positive
+from ..utilities.ops import square_distance
 from .base import Kernel
 
 
@@ -18,11 +17,7 @@ class Stationary(Kernel):
     dimension, otherwise the kernel is isotropic (has a single lengthscale).
     """
 
-    def __init__(self,
-                 variance=1.0,
-                 lengthscale=1.0,
-                 active_dims=None,
-                 ard=None):
+    def __init__(self, variance=1.0, lengthscale=1.0, active_dims=None, ard=None):
         """
         - input_dim is the dimension of the input to the kernel
         - variance is the (initial) value for the variance parameter
@@ -57,7 +52,7 @@ class Stationary(Kernel):
         return self.K_r(r)
 
     def K_diag(self, X, presliced=False):
-        return tf.fill((X.shape[:-1]), tf.cast(tf.squeeze(self.variance), tf.float64))
+        return tf.fill((X.shape[:-1]), tf.squeeze(self.variance))
 
     def K_r(self, r):
         """
@@ -83,9 +78,9 @@ class RBF(Stationary):
     def K(self, X, X2=None, presliced=False):
         if not presliced:
             X, X2 = self.slice(X, X2)
-        X /= self.lengthscale
-        X2 = X2 / self.lengthscale if X2 is not None else X2
-        return self.variance * tf.exp(-square_distance(X, X2) / 2)
+        X_scaled = X / self.lengthscale
+        X2_scaled = X2 / self.lengthscale if X2 is not None else X2
+        return self.variance * tf.exp(-0.5 * square_distance(X_scaled, X2_scaled))
 
 
 class RationalQuadratic(Stationary):
@@ -102,17 +97,15 @@ class RationalQuadratic(Stationary):
     """
 
     def __init__(self, variance=1.0, lengthscale=1.0, alpha=1.0, active_dims=None, ard=None):
-        super().__init__(variance=variance, lengthscale=lengthscale, active_dims=active_dims,
-                         ard=ard)
+        super().__init__(variance=variance, lengthscale=lengthscale, active_dims=active_dims, ard=ard)
         self.alpha = Parameter(alpha, transform=positive())
 
     def K(self, X, X2=None, presliced=False):
         if not presliced:
             X, X2 = self.slice(X, X2)
-        X /= self.lengthscale
-        X2 = X2 / self.lengthscale if X2 is not None else X2
-        return self.variance * (1 + square_distance(X, X2) / (2 * self.alpha)) ** (
-            -self.alpha)
+        X_scaled = X / self.lengthscale
+        X2_scaled = X2 / self.lengthscale if X2 is not None else X2
+        return self.variance * (1 + 0.5 * square_distance(X_scaled, X2_scaled) / self.alpha)**(-self.alpha)
 
 
 class Exponential(Stationary):
@@ -171,7 +164,7 @@ class Matern52(Stationary):
 
     def K_r(self, r):
         sqrt5 = np.sqrt(5.)
-        return self.variance * (1.0 + sqrt5 * r + 5. / 3. * tf.square(r)) * tf.exp(-sqrt5 * r)
+        return self.variance * (1.0 + sqrt5 * r + 5.0 / 3.0 * tf.square(r)) * tf.exp(-sqrt5 * r)
 
 
 class Cosine(Stationary):
