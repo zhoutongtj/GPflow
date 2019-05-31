@@ -1,7 +1,8 @@
 import numpy as np
 import tensorflow as tf
 
-from gpflow.util import default_float, square_distance
+from ..utilities.ops import broadcasting_elementwise, square_distance
+from ..utilities.defaults import default_float
 from ..base import Parameter, positive
 from .base import Kernel
 
@@ -17,7 +18,11 @@ class Stationary(Kernel):
     dimension, otherwise the kernel is isotropic (has a single lengthscale).
     """
 
-    def __init__(self, variance=1.0, lengthscale=1.0, active_dims=None, ard=None):
+    def __init__(self,
+                 variance=1.0,
+                 lengthscale=1.0,
+                 active_dims=None,
+                 ard=None):
         """
         - input_dim is the dimension of the input to the kernel
         - variance is the (initial) value for the variance parameter

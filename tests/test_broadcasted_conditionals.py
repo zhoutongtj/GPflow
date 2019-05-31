@@ -11,8 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 """
 This test suite will check if the conditionals broadcast correctly
 when the input tensors have leading dimensions.
@@ -48,7 +46,6 @@ class Data:
 
 @pytest.mark.parametrize("full_cov", [False, True])
 @pytest.mark.parametrize("white", [True, False])
-# @pytest.mark.parametrize("conditional_type", ["inducing_points"])
 @pytest.mark.parametrize("conditional_type", ["mixing", "Z", "inducing_points"])
 def test_conditional_broadcasting(full_cov, white, conditional_type):
     """
@@ -81,11 +78,16 @@ def test_conditional_broadcasting(full_cov, white, conditional_type):
         pytest.skip("combination is not implemented")
 
     num_samples = 5
-    sample_conditional_fn = lambda X: sample_conditional(X, feature, kernel, tf.convert_to_tensor(q_mu),
-                                                         q_sqrt=tf.convert_to_tensor(q_sqrt),
-                                                         white=white, full_cov=full_cov,
-                                                         num_samples=num_samples
-                                                         )
+
+    def sample_conditional_fn(X):
+        return sample_conditional(X,
+                                  feature,
+                                  kernel,
+                                  tf.convert_to_tensor(q_mu),
+                                  q_sqrt=tf.convert_to_tensor(q_sqrt),
+                                  white=white,
+                                  full_cov=full_cov,
+                                  num_samples=num_samples)
 
     samples = np.array([sample_conditional_fn(X)[0] for X in Data.SX])
     means = np.array([sample_conditional_fn(X)[1] for X in Data.SX])

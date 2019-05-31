@@ -1,13 +1,16 @@
 import tensorflow as tf
 
-from . import dispatch
 from .. import kernels
 from .. import mean_functions as mfn
 from ..features import InducingPoints
-from ..probability_distributions import (DiagonalGaussian, Gaussian,
-                                         MarkovGaussian)
-from ..util import NoneType, default_float, square_distance
+
+from ..utilities.ops import square_distance
+from ..utilities.defaults import default_float
+from ..probability_distributions import DiagonalGaussian, Gaussian, MarkovGaussian
+from . import dispatch
 from .expectations import expectation
+
+NoneType = type(None)
 
 
 @dispatch.expectation.register(Gaussian, kernels.RBF, NoneType, NoneType, NoneType)
