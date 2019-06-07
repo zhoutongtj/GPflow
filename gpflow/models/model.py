@@ -42,6 +42,12 @@ class BayesianModel(Module):
     def log_likelihood(self, *args, **kwargs) -> tf.Tensor:
         pass
 
+    @property
+    def all_objectives(self):
+        return {
+            'neg_loglik': self.neg_log_marginal_likelihood
+        }
+
 
 class GPModel(BayesianModel):
     """
