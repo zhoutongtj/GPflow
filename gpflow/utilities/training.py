@@ -7,6 +7,8 @@ from tensorflow.python.keras.callbacks import CallbackList, set_callback_paramet
 from ..models import BayesianModel
 from ..optimizers import get_optimizer
 
+tf.keras.backend.set_floatx('float64')
+
 
 def set_trainable(model: tf.Module, flag: bool = False):
     for variable in model.trainable_variables:
@@ -51,6 +53,24 @@ Data = TypeVar('Data', tf.Tensor, np.ndarray, tf.data.Dataset,
                )
 
 
+class BayesianModelKeras(tf.keras.Model):
+    def __init__(self, model: BayesianModel):
+        super(BayesianModelKeras, self).__init__()
+        self.model = model
+        self.model_weights = model.variables
+
+    def call(self, inputs):
+        X, Y = inputs[0], inputs[1]
+        return self.model.neg_log_marginal_likelihood(X, Y)
+
+
+
+class IdentityLoss(tf.keras.losses.Loss):
+
+    def call(self, _, loss):
+        return loss
+
+
 class TrainingProcedure:
     def __init__(self,
                  model: Union[tf.Module, tf.keras.models.Model],
@@ -69,23 +89,25 @@ class TrainingProcedure:
         self.default_optimizer = get_optimizer(optimizer)
 
         if self.is_keras_model:
-            self.model.compile(loss=objective,
-                               optimizer=optimizer,
-                               metrics=kwargs.get('metrics', None)
-                               )
+            self.model_keras = self.model
+        elif isinstance(self.model, BayesianModel):
+            self.model_keras = BayesianModelKeras(self.model)
+
+        self.model_keras.compile(loss=objective,
+                                 optimizer=optimizer,
+                                 metrics=kwargs.get('metrics', None)
+                                 )
 
     def fit(self,
             train_data: Data,
             train_labels: Data = None,
-            var_list: List[tf.Variable] = None,
             epochs: int = 1,
             callbacks: List[tf.keras.callbacks.Callback] = None,
             validation_data: Data = None,
             batch_size: int = None,
-            jit: bool = True
             ):
         if self.is_keras_model:
-            self.model.fit(
+            self.model_keras.fit(
                 x=train_data,
                 y=train_labels,
                 batch_size=batch_size,
@@ -93,15 +115,14 @@ class TrainingProcedure:
                 callbacks=callbacks,
                 validation_data=validation_data
             )
-        else:
-            self._default_training_loop(
-                train_data=train_data,
-                train_labels=train_labels,
+        elif isinstance(self.model, BayesianModel):
+            self.model_keras.fit(
+                x=(train_data, train_labels),
+                y=np.zeros_like(train_labels),
+                batch_size=batch_size,
                 epochs=epochs,
                 callbacks=callbacks,
-                validation_data=validation_data,
-                var_list=var_list,
-                jit=jit
+                validation_data=validation_data
             )
 
     def _validate_training_data(self, train_data: Data, train_labels: Data):
@@ -113,56 +134,15 @@ class TrainingProcedure:
         else:
             return tf.data.Dataset.from_tensors((train_data, train_labels))
 
-    def loss_epoch(self, dataset: tf.data.Dataset):
-        X, y = iter(dataset).next()
-        return self.objective(X, y)
-
-    def _default_training_loop(self,
-                               train_data: Data,
-                               train_labels: Data = None,
-                               epochs: int = 1,
-                               callbacks: List[tf.keras.callbacks.Callback] = None,
-                               validation_data: Data = None,
-                               var_list: List[tf.Variable] = None,
-                               jit: bool = False):
-        """
-        Simple generic training loop. At each iteration uses a GradientTape to compute
-        the gradients of a loss function with respect to a set of variables.
-        """
-        dataset = self._validate_training_data(train_data, train_labels)
-        callbacks = CallbackList(callbacks)
-        set_callback_parameters(callbacks, self.model, epochs=epochs,
-                                do_validation=validation_data is not None)
-
-        def optimization_step(dataset):
-            with tf.GradientTape() as tape:
-                tape.watch(var_list)
-                loss = self.loss_epoch(dataset=dataset)
-                grads = tape.gradient(loss, var_list)
-            self.default_optimizer.apply_gradients(zip(grads, var_list))
-
-        if jit:
-            optimization_step = tf.function(optimization_step)
-
-        callbacks.on_train_begin()
-        for epoch in range(epochs):
-            callbacks.on_epoch_begin(epoch)
-            optimization_step(dataset)
-            callbacks.on_epoch_end(epoch)
-        callbacks.on_train_end()
-
     def get_objective(self, objective: Union[str, tf.losses.Loss]):
         # TODO (@sergio_pasc): remove this hack that makes all losses work with loss(X, Y)
         if isinstance(objective, str):
-            if (isinstance(self.model, BayesianModel) and
-                    objective in self.model.all_objectives.keys()):
-                return self.model.all_objectives.get(objective)
+            if isinstance(self.model, BayesianModel):
+                return lambda y_true, loss: IdentityLoss()(y_true, loss)
             else:
                 objective = tf.keras.losses.get(objective)
-                return lambda x, y: objective(self.model(x), y)
+                return lambda y_true, x: objective(y_true, self.model(x))
         elif isinstance(objective, tf.losses.Loss):
-            return lambda x, y: objective(self.model(x), y)
+            return lambda y_true, x: objective(y_true, self.model(x))
         else:
             raise NotImplementedError
-
-

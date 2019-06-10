@@ -34,9 +34,9 @@ def base_conditional(Kmn: tf.Tensor,
     :return: [N, R]  or [R, N, N]
     """
     # compute kernel stuff
-    num_func = function.shape[-1]  # R
-    N = Kmn.shape[-1]
-    M = function.shape[-2]
+    num_func = tf.shape(function)[-1]  # R
+    N = tf.shape(Kmn)[-1]
+    M = tf.shape(function)[-2]
 
     # get the leadings dims in Kmn to the front of the tensor
     # if Kmn has rank two, i.e. [M, N], this is the identity op.
@@ -50,7 +50,7 @@ def base_conditional(Kmn: tf.Tensor,
         0)  # [N]
     Kmn = tf.transpose(Kmn, perm)  # [..., M, N]
 
-    leading_dims = Kmn.shape[:-2]
+    leading_dims = tf.shape(Kmn)[:-2]
     Lm = tf.linalg.cholesky(Kmm)  # [M, M]
 
     # Compute the projection matrix A

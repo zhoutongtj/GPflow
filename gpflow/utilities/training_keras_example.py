@@ -28,47 +28,10 @@ test_dataset = tf.data.Dataset.from_tensors((Xtest, Ytest))
 tf.keras.backend.set_floatx('float64')
 
 
-class BayesianModelKeras(tf.keras.Model):
-    def __init__(self, model: BayesianModel):
-        super(BayesianModelKeras, self).__init__()
-        self.model = model
-        # Registering the weights
-        self.model_weights = model.variables
+class IdentityLoss(tf.keras.losses.Loss):
 
-    def call(self, inputs):
-        return self.model.predict_f(inputs, full_cov=False, full_output_cov=False)
-
-
-class NegLogMarginalLikelihoodSVGP(tf.keras.losses.Loss):
-    def __init__(self, model: BayesianModel,
-                 reduction=losses_utils.ReductionV2.AUTO,
-                 name='neg_loglik',
-                 **kwargs
-                 ):
-        super(NegLogMarginalLikelihoodSVGP, self).__init__(reduction=reduction, name=name)
-        self.model = model
-
-    def call(self, y_true, y_pred):
-        """Invokes the `LossFunctionWrapper` instance.
-
-        Args:
-          y_true: Ground truth values.
-          y_pred: The predicted values.
-
-        Returns:
-          Loss values per sample.
-        """
-        kl = self.model.prior_kl()
-        # Here we replace self.model.predict_f(X) with y_pred = BayesianModelKeras.call(X)
-        f_mean, f_var = y_pred[0], y_pred[1]
-        var_exp = self.model.likelihood.variational_expectations(f_mean, f_var, y_true)
-        if self.model.num_data is not None:
-            num_data = tf.cast(self.num_data, kl.dtype)
-            minibatch_size = tf.cast(y_true.shape[0], kl.dtype)
-            scale = num_data / minibatch_size
-        else:
-            scale = tf.cast(1.0, kl.dtype)
-        return tf.reduce_sum(var_exp) * scale - kl
+    def call(self, _, loss):
+        return loss
 
 
 ## MODELS
@@ -76,17 +39,14 @@ class NegLogMarginalLikelihoodSVGP(tf.keras.losses.Loss):
 def run_keras_fit():
     model_gp = SVGP(gpflow.kernels.RBF(), gpflow.likelihoods.Gaussian(),
                     feature=np.linspace(0, 10, 10).reshape(10, 1))
-    model_keras_gp = BayesianModelKeras(model_gp)
-    loss_neg_loglik = NegLogMarginalLikelihoodSVGP(model_gp)
+    loss_neg_loglik = IdentityLoss()
 
-    training = TrainingProcedure(model=model_keras_gp, objective=loss_neg_loglik, optimizer='adam')
+    training = TrainingProcedure(model=model_gp, objective=loss_neg_loglik, optimizer='adam')
 
     training.fit(
         train_data=Xt,
         train_labels=Yt,
-        validation_data=(Xtest, Ytest),
-        epochs=1000,
-        jit=True
+        epochs=1000
     )
 
 
