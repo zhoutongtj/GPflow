@@ -69,7 +69,6 @@ class TrainingProcedure:
         self.default_optimizer = get_optimizer(optimizer)
 
         if self.is_keras_model:
-            assert isinstance(objective, str) and isinstance(optimizer, str)
             self.model.compile(loss=objective,
                                optimizer=optimizer,
                                metrics=kwargs.get('metrics', None)
