@@ -85,14 +85,15 @@ example_module_list_variable_dict = {
 
 model_keras = tf.keras.Sequential([
     tf.keras.layers.Dense(Data.H0, activation='relu', kernel_initializer='ones'),
-    tf.keras.layers.Dense(Data.H1, activation='relu', kernel_initializer='ones', use_bias=False)
+    tf.keras.layers.Dense(Data.H1, activation='relu', kernel_initializer='ones', use_bias=False,
+                          trainable=False)
 ])
 model_keras.build(input_shape=(Data.M, Data.D))
 model_keras_variable_dict = {
-    'Dense_0.kernel': {'value': np.ones((Data.D, Data.H0)), 'trainable': True,
+    'dense.kernel': {'value': np.ones((Data.D, Data.H0)), 'trainable': True,
                        'shape': (Data.D, Data.H0)},
-    'Dense_0.bias': {'value': np.zeros((Data.H0,)), 'trainable': True, 'shape': (Data.H0,)},
-    'Dense_1.kernel': {'value': np.ones((Data.H0, Data.H1)), 'trainable': True,
+    'dense.bias': {'value': np.zeros((Data.H0,)), 'trainable': True, 'shape': (Data.H0,)},
+    'dense_1.kernel': {'value': np.ones((Data.H0, Data.H1)), 'trainable': False,
                        'shape': (Data.H0, Data.H1)}
 }
 
