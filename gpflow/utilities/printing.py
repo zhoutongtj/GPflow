@@ -58,7 +58,7 @@ def get_component_variables(module: tf.Module, prefix: Optional[str] = None):
     its relative path inside the module, which is constructed recursively by adding a prefix with
     the path to the current module. Designed to be used as a helper for the method 'print_summary'.
 
-    :param module: tf.Module including keras.Model, keras.layers.Layer and other gpflow.Modules.
+    :param module: tf.Module including keras.Model, keras.layers.Layer and gpflow.Module.
     :param prefix: string containing the relative path to module, by default set to None.
     :return:
     """
