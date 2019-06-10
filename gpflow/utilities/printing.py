@@ -14,6 +14,7 @@
 
 import re
 from functools import lru_cache
+from typing import Optional
 
 import numpy as np
 import tensorflow as tf
@@ -50,32 +51,42 @@ def print_summary(module: tf.Module, fmt: str = None):
     print(tabulate(column_values, headers=column_names, tablefmt=fmt))
 
 
-def get_component_variables(module: tf.Module, prefix=None):
+def get_component_variables(module: tf.Module, prefix: Optional[str] = None):
+    """
+    Returns a list of tuples each corresponding to a gpflow.Parameter or tf.Variable in the each
+    submodules of a given tf.Module. Each tuple consists of an specific Parameter (or Variable) and
+    its relative path inside the module, which is constructed recursively by adding a prefix with
+    the path to the current module. Designed to be used as a helper for the method 'print_summary'.
+
+    :param module: tf.Module including keras.Model, keras.layers.Layer and other gpflow.Modules.
+    :param prefix: string containing the relative path to module, by default set to None.
+    :return:
+    """
     prefix = module.__class__.__name__ if prefix is None else prefix
     var_list = []
-    module_dict = vars(module)
-    for key, submodule in module_dict.items():
-        if key in tf.Module()._TF_MODULE_IGNORED_PROPERTIES:
-            continue
-        elif isinstance(submodule, Parameter) or isinstance(submodule, tf.Variable):
-            var_list.append(('%s.%s' % (prefix, key), submodule))
-        elif isinstance(submodule, tf.Module):
-            submodule_var = get_component_variables(submodule, prefix='%s.%s' % (prefix, key))
-            var_list.extend(submodule_var)
-        elif isinstance(submodule, list):
-            for idx, item in enumerate(submodule):
-                item_name = item.__class__.__name__
-                if key in ['_trainable_weights']:
-                    continue
-                elif isinstance(item, tf.Module):
-                    submodule_var = get_component_variables(
-                        item, prefix='%s.%s.%s_%i' % (prefix, key, item_name, idx)
-                    )
-                    var_list.extend(submodule_var)
-                elif isinstance(item, Parameter) or isinstance(item, tf.Variable):
-                    var_list.append(('%s.%s.%s_%i' % (prefix, key, item_name, idx), item))
+    if isinstance(module, tf.keras.Model) or isinstance(module, tf.keras.layers.Layer):
+        for weight in module.weights:
+            if weight in module.non_trainable_weights:
+                weight._trainable = False
+            weight_path = '{}.{}'.format(prefix, _format_keras_weight_names(weight.name))
+            var_list.append((weight_path, weight))
+    else:
+        module_dict = vars(module)
+        for key, submodule in module_dict.items():
+            if key in tf.Module._TF_MODULE_IGNORED_PROPERTIES:
+                continue
+            elif isinstance(submodule, Parameter) or isinstance(submodule, tf.Variable):
+                var_list.append(('{}.{}'.format(prefix, key), submodule))
+            elif isinstance(submodule, tf.Module):
+                submodule_var = get_component_variables(submodule,
+                                                        prefix='{}.{}'.format(prefix, key))
+                var_list.extend(submodule_var)
 
     return var_list
+
+
+def _format_keras_weight_names(name: str):
+    return re.sub('/', '.', name).strip(':0')
 
 
 @lru_cache()
