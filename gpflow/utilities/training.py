@@ -4,6 +4,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.python.keras.callbacks import CallbackList, set_callback_parameters
 
+from .defaults import default_float
 from ..models import BayesianModel
 from ..optimizers import get_optimizer
 
@@ -53,22 +54,23 @@ Data = TypeVar('Data', tf.Tensor, np.ndarray, tf.data.Dataset,
                )
 
 
-class BayesianModelKeras(tf.keras.Model):
-    def __init__(self, model: BayesianModel):
-        super(BayesianModelKeras, self).__init__()
-        self.model = model
-        self.model_weights = model.variables
+class KerasBayesianModel(tf.keras.Model):
+    def __init__(self, model: BayesianModel, objective_name: str, metrics: List[str]):
+        super(KerasBayesianModel, self).__init__()
+        self.bayesian_model = model
+        self.bayesian_model_weights = model.variables
+        self.objective_fn = model.all_objectives[objective_name]
+        self.metrics_fn = {
+            metric_name: model.all_objectives[metric_name] for metric_name in metrics
+        }
 
     def call(self, inputs):
         X, Y = inputs[0], inputs[1]
-        return self.model.neg_log_marginal_likelihood(X, Y)
-
-
-
-class IdentityLoss(tf.keras.losses.Loss):
-
-    def call(self, _, loss):
-        return loss
+        self.add_loss(self.objective_fn(X, Y))
+        for metric_name, metric_fn in self.metrics_fn.items():
+            self.add_metric(metric_fn(X, Y), name=metric_name, aggregation='mean')
+        y_pred_mean = self.bayesian_model.predict_y(X)[0]
+        return y_pred_mean
 
 
 class TrainingProcedure:
@@ -83,20 +85,17 @@ class TrainingProcedure:
         :param objective:
         :param kwargs: Extra parameters for keras ...
         """
-        self.is_keras_model = isinstance(model, tf.keras.Model)
         self.model = model
         self.objective = self.get_objective(objective)
+        self.metrics = self.get_metrics(kwargs.get('metrics', None))
         self.default_optimizer = get_optimizer(optimizer)
 
-        if self.is_keras_model:
-            self.model_keras = self.model
-        elif isinstance(self.model, BayesianModel):
-            self.model_keras = BayesianModelKeras(self.model)
-
-        self.model_keras.compile(loss=objective,
-                                 optimizer=optimizer,
-                                 metrics=kwargs.get('metrics', None)
-                                 )
+        self.model_keras = self.get_keras_model(model)
+        self.model_keras.compile(
+            loss=self.objective,
+            optimizer=self.default_optimizer,
+            metrics=self.metrics
+        )
 
     def fit(self,
             train_data: Data,
@@ -106,43 +105,54 @@ class TrainingProcedure:
             validation_data: Data = None,
             batch_size: int = None,
             ):
-        if self.is_keras_model:
-            self.model_keras.fit(
-                x=train_data,
-                y=train_labels,
-                batch_size=batch_size,
-                epochs=epochs,
-                callbacks=callbacks,
-                validation_data=validation_data
-            )
-        elif isinstance(self.model, BayesianModel):
-            self.model_keras.fit(
-                x=(train_data, train_labels),
-                y=np.zeros_like(train_labels),
-                batch_size=batch_size,
-                epochs=epochs,
-                callbacks=callbacks,
-                validation_data=validation_data
-            )
+        dataset = self.prepare_dataset(train_data, train_labels)
+        validation_dataset = self.prepare_dataset(validation_data)
+        self.model_keras.fit(dataset,
+                             batch_size=batch_size,
+                             epochs=epochs,
+                             callbacks=callbacks,
+                             validation_data=validation_dataset
+                             )
 
-    def _validate_training_data(self, train_data: Data, train_labels: Data):
+    def prepare_dataset(self, train_data: Data, train_labels: Optional[Data]=None):
         if train_labels is None:
             if isinstance(train_data, Tuple):
-                return tf.data.Dataset.from_tensors((train_data[0], train_data[1]))
+                data = tf.data.Dataset.from_tensors((train_data[0], train_data[1]))
             elif isinstance(train_data, tf.data.Dataset):
-                return train_data
+                data = train_data
+            else:
+                raise NotImplementedError
         else:
-            return tf.data.Dataset.from_tensors((train_data, train_labels))
+            data = tf.data.Dataset.from_tensors((train_data, train_labels))
+
+        if self.objective is self.zero_objective:
+            data_labels = data.map(lambda x, y: y)
+            data = tf.data.Dataset.zip((data, data_labels))
+        return data
+
+    def get_metrics(self, metrics: List):
+        metrics = [] if metrics is None else metrics
+        if isinstance(self.model, BayesianModel):
+            self.model_metrics = list(set(metrics).intersection(self.model.all_objectives))
+            return list(set(metrics).difference(self.model.all_objectives))
+        return metrics
 
     def get_objective(self, objective: Union[str, tf.losses.Loss]):
-        # TODO (@sergio_pasc): remove this hack that makes all losses work with loss(X, Y)
-        if isinstance(objective, str):
-            if isinstance(self.model, BayesianModel):
-                return lambda y_true, loss: IdentityLoss()(y_true, loss)
-            else:
-                objective = tf.keras.losses.get(objective)
-                return lambda y_true, x: objective(y_true, self.model(x))
-        elif isinstance(objective, tf.losses.Loss):
-            return lambda y_true, x: objective(y_true, self.model(x))
+        if isinstance(self.model, BayesianModel):
+            if objective in self.model.all_objectives:
+                self.objective_name = objective
+                return self.zero_objective
+            return objective
+        return objective
+
+    def get_keras_model(self, model):
+        if isinstance(model, tf.keras.Model):
+            return model
+        elif isinstance(model, BayesianModel):
+            return KerasBayesianModel(model, self.objective_name, self.model_metrics)
         else:
             raise NotImplementedError
+
+    @staticmethod
+    def zero_objective(*args):
+        return tf.zeros((1,), dtype=default_float())

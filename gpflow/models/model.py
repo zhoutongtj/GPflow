@@ -45,7 +45,8 @@ class BayesianModel(Module):
     @property
     def all_objectives(self):
         return {
-            'neg_loglik': self.neg_log_marginal_likelihood
+            'neg_loglik': self.neg_log_marginal_likelihood,
+            'log_lik' : self.log_likelihood
         }
 
 
