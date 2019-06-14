@@ -6,7 +6,7 @@ from tensorflow.python.keras.utils import losses_utils
 import matplotlib.pyplot as plt
 
 import gpflow
-from gpflow.utilities.training import TrainingProcedure
+from gpflow.utilities.training import TrainingProcedure, KerasBayesianModel
 from gpflow.models import BayesianModel, SVGP
 
 ## DATA
@@ -44,21 +44,31 @@ def run_keras_fit():
                     feature=np.linspace(0, 10, 10).reshape(10, 1))
 
     class Metrics(tf.keras.callbacks.Callback):
+        def __init__(self, validation_data):
+            super().__init__()
+            self.validation_data = validation_data
 
         def on_train_begin(self, logs=None):
             self._data = []
 
-        def on_epoch_end(self, batch, logs=None):
+        def on_epoch_end(self, epoch, logs=None):
             X_val, y_val = self.validation_data
-            y_predict = self.model.bayesian_model.predict_y(X_val)[0]
+            if epoch % 100 == 0:
+                Y_predict_gp = self.model.bayesian_model.predict_y(X_val)[0]
+                plt.plot(Xtest, Ytest, 'b.')
+                plt.plot(Xtest, Y_predict_gp, 'r.')
+                plt.show()
 
-            print(logs['mse'], tf.keras.metrics.mse(y_predict, y_val))
+    callbacks = [Metrics((Xtest, Ytest))]
 
-    callbacks = [Metrics()]
-
-    training = TrainingProcedure(model=model_gp, objective='neg_loglik',
+    training = TrainingProcedure(model=model_gp,
+                                 objective='neg_log_marginal_likelihood',
                                  optimizer='adam',
-                                 metrics=['mse', 'neg_loglik', 'log_lik']
+                                 metrics=[
+                                     # 'mse',
+                                     # 'neg_log_marginal_likelihood',
+                                     # 'log_likelihood'
+                                 ]
                                  )
     t0 = time.time()
     training.fit(
@@ -80,3 +90,23 @@ def run_keras_fit():
 
 if __name__ == '__main__':
     run_keras_fit()
+    # model_gp = SVGP(gpflow.kernels.RBF(), gpflow.likelihoods.Gaussian(),
+    #                 feature=np.linspace(0, 10, 10).reshape(10, 1))
+    # model_keras = KerasBayesianModel(model=model_gp, objective_name='neg_log_marginal_likelihood',
+    #                    inference_name='predict_y')
+    # model_keras.compile(
+    #     loss=None,
+    #     optimizer='adam'
+    # )
+    # data = tf.data.Dataset.from_tensors((Xt, Yt))
+    # data_labels = data.map(lambda x, y: y)
+    # data = tf.data.Dataset.zip((data, data_labels))
+    # it = iter(data)
+    # input, output = next(it)
+    # output_pred = model_keras(input)
+    # # model_keras = tf.keras.Model(inputs=input, outputs=output_pred)
+    # # model_keras.compile(
+    # #     loss=None,
+    # #     optimizer='adam'
+    # # )
+    # print(model_keras.summary())

@@ -26,7 +26,6 @@ from ..utilities.defaults import default_float, default_jitter
 MeanAndVariance = Tuple[tf.Tensor, tf.Tensor]
 
 
-
 class BayesianModel(Module):
     """ Bayesian model. """
 
@@ -41,13 +40,6 @@ class BayesianModel(Module):
     @abc.abstractmethod
     def log_likelihood(self, *args, **kwargs) -> tf.Tensor:
         pass
-
-    @property
-    def all_objectives(self):
-        return {
-            'neg_loglik': self.neg_log_marginal_likelihood,
-            'log_lik' : self.log_likelihood
-        }
 
 
 class GPModel(BayesianModel):
@@ -84,7 +76,7 @@ class GPModel(BayesianModel):
                  num_latent: int = 1):
         super().__init__()
         self.num_latent = num_latent
-        #TODO(@awav): Why is this here when MeanFunction does not have a __len__ method
+        # TODO(@awav): Why is this here when MeanFunction does not have a __len__ method
         if mean_function is None:
             mean_function = Zero()
         self.mean_function = mean_function
@@ -172,7 +164,7 @@ class GPModelOLD(BayesianModel):
         self.X = X
         self.Y = Y
         self.num_latent = num_latent or Y.shape[1]
-        #TODO(@awav): Why is this here when MeanFunction does not have a __len__ method
+        # TODO(@awav): Why is this here when MeanFunction does not have a __len__ method
         if mean_function is None:
             mean_function = Zero()
         self.mean_function = mean_function

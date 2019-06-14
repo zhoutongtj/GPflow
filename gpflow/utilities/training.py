@@ -1,4 +1,4 @@
-from typing import Callable, List, Optional, TypeVar, Tuple, Union
+from typing import Callable, List, Optional, TypeVar, Tuple, Union, Dict
 
 import numpy as np
 import tensorflow as tf
@@ -49,31 +49,35 @@ def training_loop(closure: Callable[..., tf.Tensor],
         optimization_step()
 
 
-Data = TypeVar('Data', tf.Tensor, np.ndarray, tf.data.Dataset,
-               Tuple[tf.Tensor, tf.Tensor], Tuple[np.ndarray, np.ndarray]
-               )
+Data = TypeVar('Data', tf.Tensor, np.ndarray, tf.data.Dataset, Tuple[tf.Tensor], Tuple[np.ndarray])
 
 
 class KerasBayesianModel(tf.keras.Model):
-    def __init__(self, model: BayesianModel, objective_name: str, metrics: List[str]):
+    def __init__(self,
+                 model: BayesianModel,
+                 objective: Callable,
+                 inference: Optional[Callable] = None,
+                 metrics: Dict = dict()):
         super(KerasBayesianModel, self).__init__()
         self.bayesian_model = model
         self.bayesian_model_weights = model.variables
-        self.objective_fn = model.all_objectives[objective_name]
-        self.metrics_fn = {
-            metric_name: model.all_objectives[metric_name] for metric_name in metrics
-        }
+        self.objective_fn = objective
+        self.inference_fn = self.default_inference if inference is None else inference
+        self.metric_fns = metrics
 
-    def call(self, inputs):
-        X, Y = inputs[0], inputs[1]
-        self.add_loss(self.objective_fn(X, Y))
-        for metric_name, metric_fn in self.metrics_fn.items():
-            self.add_metric(metric_fn(X, Y), name=metric_name, aggregation='mean')
-        y_pred_mean = self.bayesian_model.predict_y(X)[0]
-        return y_pred_mean
+    def call(self, *inputs):
+        x = list(*inputs)[0]
+        y = list(*inputs)[1] if len(*inputs) > 1 else None
+        self.add_loss(self.objective_fn(x, y))
+        for metric_name, metric_fn in self.metric_fns.items():
+            self.add_metric(metric_fn(x, y), name=metric_name, aggregation='mean')
+        return self.inference_fn(x)
+
+    def default_inference(self):
+        return lambda x: self.bayesian_model.predict_y(x)[0]
 
 
-class TrainingProcedure:
+class TrainingProcedure():
     def __init__(self,
                  model: Union[tf.Module, tf.keras.models.Model],
                  objective: Union[str, tf.losses.Loss],
@@ -111,10 +115,11 @@ class TrainingProcedure:
                              batch_size=batch_size,
                              epochs=epochs,
                              callbacks=callbacks,
-                             validation_data=validation_dataset
+                             validation_data=validation_dataset,
+                             verbose=1
                              )
 
-    def prepare_dataset(self, train_data: Data, train_labels: Optional[Data]=None):
+    def prepare_dataset(self, train_data: Data, train_labels: Optional[Data] = None):
         if train_labels is None:
             if isinstance(train_data, Tuple):
                 data = tf.data.Dataset.from_tensors((train_data[0], train_data[1]))
@@ -125,7 +130,7 @@ class TrainingProcedure:
         else:
             data = tf.data.Dataset.from_tensors((train_data, train_labels))
 
-        if self.objective is self.zero_objective:
+        if self.objective is self.auxiliary_objective:
             data_labels = data.map(lambda x, y: y)
             data = tf.data.Dataset.zip((data, data_labels))
         return data
@@ -133,26 +138,29 @@ class TrainingProcedure:
     def get_metrics(self, metrics: List):
         metrics = [] if metrics is None else metrics
         if isinstance(self.model, BayesianModel):
-            self.model_metrics = list(set(metrics).intersection(self.model.all_objectives))
-            return list(set(metrics).difference(self.model.all_objectives))
+            self.metric_model_fns = {
+                metric_name: getattr(self.model, metric_name) for metric_name
+                in set(metrics).intersection(dir(self.model))
+            }
+            return list(set(metrics).difference(dir(self.model)))
         return metrics
 
     def get_objective(self, objective: Union[str, tf.losses.Loss]):
-        if isinstance(self.model, BayesianModel):
-            if objective in self.model.all_objectives:
-                self.objective_name = objective
-                return self.zero_objective
-            return objective
+        if isinstance(self.model, BayesianModel) and objective in dir(self.model):
+            self.objective_model_fn = getattr(self.model, objective)
+            return self.auxiliary_objective
         return objective
 
     def get_keras_model(self, model):
         if isinstance(model, tf.keras.Model):
             return model
         elif isinstance(model, BayesianModel):
-            return KerasBayesianModel(model, self.objective_name, self.model_metrics)
+            return KerasBayesianModel(model,
+                                      self.objective_model_fn,
+                                      metrics=self.metric_model_fns)
         else:
             raise NotImplementedError
 
     @staticmethod
-    def zero_objective(*args):
+    def auxiliary_objective(y_true, y_pred):
         return tf.zeros((1,), dtype=default_float())
