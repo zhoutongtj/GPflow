@@ -1,16 +1,19 @@
-import time
+import io
 
+import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
-from tensorflow.python.keras.utils import losses_utils
-import matplotlib.pyplot as plt
 
 import gpflow
-from gpflow.utilities.training import TrainingProcedure, KerasBayesianModel
-from gpflow.models import BayesianModel, SVGP
+from gpflow import default_float, default_jitter
+from gpflow.models import SVGP
+from gpflow.utilities.training import TrainingProcedure
 
-## DATA
+tf.keras.backend.set_floatx('float64')
 
+# -----------------------------------------------------
+# DATA
+# -----------------------------------------------------
 
 np.random.seed(0)
 N = 100
@@ -23,90 +26,106 @@ Ytest = np.sin(Xtest) + 0.1 * np.random.randn(*Xtest.shape)
 
 dataset = tf.data.Dataset.from_tensors((Xt, Yt))
 test_dataset = tf.data.Dataset.from_tensors((Xtest, Ytest))
-# plt.plot(Xt, Yt, 'r.')
+
+# -----------------------------------------------------
+# Model definition
+# -----------------------------------------------------
+
+model_gp = SVGP(gpflow.kernels.RBF(), gpflow.likelihoods.Gaussian(),
+                feature=np.linspace(0, 10, 10).reshape(10, 1)
+                )
 
 
-## KERAS HELPERS
+# -----------------------------------------------------
+# Callback for metrics
+# -----------------------------------------------------
 
-tf.keras.backend.set_floatx('float64')
+class SampleBasedMSE(tf.keras.callbacks.Callback):
+    def __init__(self, validation_data, num_samples=1, log_dir='logs', freq=50):
+        super().__init__()
+        self.log_dir = log_dir
+        self.validation_data = validation_data
+        self.num_samples = num_samples
+        self.freq = freq
 
+        self.summary_writer = tf.summary.create_file_writer(log_dir)
 
-class IdentityLoss(tf.keras.losses.Loss):
+    def generate_samples(self, mu, var, num_samples):
+        jitter = tf.eye(tf.shape(mu)[0], dtype=default_float()) * default_jitter()
+        samples = [None] * self.model.bayesian_model.num_latent
+        for i in range(self.model.bayesian_model.num_latent):
+            L = tf.linalg.cholesky(var[i, ...] + jitter)
+            shape = tf.stack([L.shape[0], num_samples])
+            V = tf.random.normal(shape, dtype=L.dtype)
+            samples[i] = mu[:, i:(i + 1)] + L @ V
+        return tf.transpose(tf.stack(samples))
 
-    def call(self, _, loss):
-        return loss
-
-
-## MODELS
-
-def run_keras_fit():
-    model_gp = SVGP(gpflow.kernels.RBF(), gpflow.likelihoods.Gaussian(),
-                    feature=np.linspace(0, 10, 10).reshape(10, 1))
-
-    class Metrics(tf.keras.callbacks.Callback):
-        def __init__(self, validation_data):
-            super().__init__()
-            self.validation_data = validation_data
-
-        def on_train_begin(self, logs=None):
-            self._data = []
-
-        def on_epoch_end(self, epoch, logs=None):
+    def on_epoch_end(self, epoch, logs=None):
+        if epoch % self.freq == 0:
             X_val, y_val = self.validation_data
-            if epoch % 100 == 0:
-                Y_predict_gp = self.model.bayesian_model.predict_y(X_val)[0]
-                plt.plot(Xtest, Ytest, 'b.')
-                plt.plot(Xtest, Y_predict_gp, 'r.')
-                plt.show()
+            y_mu, y_var = self.model.bayesian_model.predict_y(X_val)
+            # Generate samples of GP model
+            y_samples = self.generate_samples(y_mu, y_var, num_samples=self.num_samples)
+            # Compute MSE accross inputs and samples
+            mse = tf.keras.metrics.mse(y_samples, y_val).numpy().mean()
+            # Plot samples
+            fig = plt.figure(0)
+            for i in range(self.num_samples):
+                plt.plot(X_val, y_samples[i, ...], '.')
+            image = self.plot_to_image(fig)
+            # Write to summary
+            with self.summary_writer.as_default():
+                tf.summary.scalar('mse_samples', data=mse, step=epoch)
+                tf.summary.image('sample', data=image, step=epoch)
 
-    callbacks = [Metrics((Xtest, Ytest))]
-
-    training = TrainingProcedure(model=model_gp,
-                                 objective='neg_log_marginal_likelihood',
-                                 optimizer='adam',
-                                 metrics=[
-                                     # 'mse',
-                                     # 'neg_log_marginal_likelihood',
-                                     # 'log_likelihood'
-                                 ]
-                                 )
-    t0 = time.time()
-    training.fit(
-        train_data=Xt,
-        train_labels=Yt,
-        validation_data=(Xtest, Ytest),
-        callbacks=callbacks,
-        epochs=1000
-    )
-    t_f = time.time()
-    Y_predict_gp = model_gp.predict_y(Xtest)[0]
-    mse_test = tf.keras.losses.mse(Y_predict_gp.numpy().T, Ytest.T)
-    print('{} secs to train tf.Module model with MSE {} in test set'.format(t_f - t0, mse_test))
-    # Plot predictions
-    plt.plot(Xtest, Ytest, 'b.')
-    plt.plot(Xtest, Y_predict_gp, 'r.')
-    plt.show()
+    @staticmethod
+    def plot_to_image(figure):
+        """Converts the matplotlib plot specified by 'figure' to a PNG image and
+        returns it. The supplied figure is closed and inaccessible after this call."""
+        # Save the plot to a PNG in memory.
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png')
+        buf.seek(0)
+        # Convert PNG buffer to TF image
+        image = tf.image.decode_png(buf.getvalue(), channels=4)
+        # Add the batch dimension
+        image = tf.expand_dims(image, 0)
+        return image
 
 
-if __name__ == '__main__':
-    run_keras_fit()
-    # model_gp = SVGP(gpflow.kernels.RBF(), gpflow.likelihoods.Gaussian(),
-    #                 feature=np.linspace(0, 10, 10).reshape(10, 1))
-    # model_keras = KerasBayesianModel(model=model_gp, objective_name='neg_log_marginal_likelihood',
-    #                    inference_name='predict_y')
-    # model_keras.compile(
-    #     loss=None,
-    #     optimizer='adam'
-    # )
-    # data = tf.data.Dataset.from_tensors((Xt, Yt))
-    # data_labels = data.map(lambda x, y: y)
-    # data = tf.data.Dataset.zip((data, data_labels))
-    # it = iter(data)
-    # input, output = next(it)
-    # output_pred = model_keras(input)
-    # # model_keras = tf.keras.Model(inputs=input, outputs=output_pred)
-    # # model_keras.compile(
-    # #     loss=None,
-    # #     optimizer='adam'
-    # # )
-    # print(model_keras.summary())
+# -----------------------------------------------------
+# Training
+# -----------------------------------------------------
+
+
+training = TrainingProcedure(model=model_gp,
+                             objective='neg_log_marginal_likelihood',
+                             optimizer='adam',
+                             metrics=[
+                                 'mse',
+                                 'log_likelihood'
+                             ]
+                             )
+
+logdir = '/tmp/logs'
+
+training.fit(
+    train_data=Xt,
+    train_labels=Yt,
+    validation_data=(Xtest, Ytest),
+    callbacks=[
+        tf.keras.callbacks.TensorBoard(log_dir=logdir),
+        SampleBasedMSE((Xtest, Ytest), num_samples=5, log_dir=logdir)
+    ],
+    epochs=1000
+)
+
+# -----------------------------------------------------
+# Evaluate / Plot trained model
+# -----------------------------------------------------
+
+Y_predict_gp = model_gp.predict_y(Xtest)[0]
+# Plot predictions
+plt.plot(Xtest, Ytest, 'b.')
+plt.plot(Xtest, Y_predict_gp, 'r.')
+plt.show()

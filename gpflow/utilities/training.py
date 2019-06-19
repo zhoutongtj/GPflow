@@ -2,7 +2,6 @@ from typing import Callable, List, Optional, TypeVar, Tuple, Union, Dict
 
 import numpy as np
 import tensorflow as tf
-from tensorflow.python.keras.callbacks import CallbackList, set_callback_parameters
 
 from .defaults import default_float
 from ..models import BayesianModel
@@ -57,13 +56,13 @@ class KerasBayesianModel(tf.keras.Model):
                  model: BayesianModel,
                  objective: Callable,
                  inference: Optional[Callable] = None,
-                 metrics: Dict = dict()):
+                 metrics: Optional[Dict] = None):
         super(KerasBayesianModel, self).__init__()
         self.bayesian_model = model
         self.bayesian_model_weights = model.variables
         self.objective_fn = objective
         self.inference_fn = self.default_inference if inference is None else inference
-        self.metric_fns = metrics
+        self.metric_fns = {} if metrics is None else metrics
 
     def call(self, *inputs):
         x = list(*inputs)[0]
@@ -73,11 +72,12 @@ class KerasBayesianModel(tf.keras.Model):
             self.add_metric(metric_fn(x, y), name=metric_name, aggregation='mean')
         return self.inference_fn(x)
 
+    @property
     def default_inference(self):
         return lambda x: self.bayesian_model.predict_y(x)[0]
 
 
-class TrainingProcedure():
+class TrainingProcedure:
     def __init__(self,
                  model: Union[tf.Module, tf.keras.models.Model],
                  objective: Union[str, tf.losses.Loss],
@@ -125,6 +125,8 @@ class TrainingProcedure():
                 data = tf.data.Dataset.from_tensors((train_data[0], train_data[1]))
             elif isinstance(train_data, tf.data.Dataset):
                 data = train_data
+            elif train_data is None:
+                return None
             else:
                 raise NotImplementedError
         else:
