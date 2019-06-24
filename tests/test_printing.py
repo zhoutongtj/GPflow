@@ -100,7 +100,7 @@ model_keras_variable_dict = {
 
 @pytest.mark.parametrize('module', [A(), kernel, model_gp, B(), model_keras])
 def test_get_component_variables_only_returns_parameters_and_variables(module):
-    for path, variable in get_component_variables(module):
+    for path, variable in get_component_variables(module).items():
         assert isinstance(variable, tf.Variable) or isinstance(variable, gpflow.Parameter)
 
 
@@ -109,7 +109,7 @@ def test_get_component_variables_only_returns_parameters_and_variables(module):
     (model_gp, model_gp_param_dict)
 ])
 def test_get_component_variables_registers_variable_properties(module, expected_param_dicts):
-    for path, variable in get_component_variables(module):
+    for path, variable in get_component_variables(module).items():
         param_name = path.split('.')[-2] + '.' + path.split('.')[-1]
         assert isinstance(variable, gpflow.Parameter)
         np.testing.assert_equal(variable.value().numpy(), expected_param_dicts[param_name]['value'])
@@ -123,7 +123,7 @@ def test_get_component_variables_registers_variable_properties(module, expected_
     (model_keras, model_keras_variable_dict),
 ])
 def test_get_component_variables_registers_param_properties(module, expected_var_dicts):
-    for path, variable in get_component_variables(module):
+    for path, variable in get_component_variables(module).items():
         var_name = path.split('.')[-2] + '.' + path.split('.')[-1]
         assert isinstance(variable, tf.Variable)
         np.testing.assert_equal(variable.numpy(), expected_var_dicts[var_name]['value'])

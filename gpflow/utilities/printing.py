@@ -46,7 +46,7 @@ def print_summary(module: tf.Module, fmt: str = None):
         variable.shape,
         variable.dtype.name,
         get_str_tensor_value(variable.numpy())
-    ] for path, variable in get_component_variables(module)]
+    ] for path, variable in get_component_variables(module).items()]
 
     print(tabulate(column_values, headers=column_names, tablefmt=fmt))
 
@@ -63,26 +63,26 @@ def get_component_variables(module: tf.Module, prefix: Optional[str] = None):
     :return:
     """
     prefix = module.__class__.__name__ if prefix is None else prefix
-    var_list = []
+    var_dict = {}
     if isinstance(module, tf.keras.Model) or isinstance(module, tf.keras.layers.Layer):
         for weight in module.weights:
             if weight in module.non_trainable_weights:
                 weight._trainable = False
             weight_path = '{}.{}'.format(prefix, _format_keras_weight_names(weight.name))
-            var_list.append((weight_path, weight))
+            var_dict[weight_path] = weight
     else:
         module_dict = vars(module)
         for key, submodule in module_dict.items():
             if key in tf.Module._TF_MODULE_IGNORED_PROPERTIES:
                 continue
             elif isinstance(submodule, Parameter) or isinstance(submodule, tf.Variable):
-                var_list.append(('{}.{}'.format(prefix, key), submodule))
+                var_dict['{}.{}'.format(prefix, key)] = submodule
             elif isinstance(submodule, tf.Module):
                 submodule_var = get_component_variables(submodule,
                                                         prefix='{}.{}'.format(prefix, key))
-                var_list.extend(submodule_var)
+                var_dict.update(submodule_var)
 
-    return var_list
+    return var_dict
 
 
 def _format_keras_weight_names(name: str):
