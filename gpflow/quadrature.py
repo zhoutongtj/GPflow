@@ -158,6 +158,17 @@ def ndiagquad(funcs, H: int, Fmu, Fvar, logspace: bool = False, **Ys):
 
     return eval_func(funcs)
 
+def new_ndiagquad(funcs, H: int, Fmu, Fvar, logspace: bool = False, **Ys):
+    """
+    funcs: Callable or Sequence[Callable]
+        func(F: [...N, L], Y: [...N, R])
+        must broadcast over leading (all but final) dimensions
+    Fmu: tensor [...N, L]
+    Fvar: tensor [...N, L]
+    Ys: extra arguments (passed by name) of shape [...N, R]
+        e.g. Y [...N, R]
+    """
+
 
 def ndiag_mc(funcs, S: int, Fmu, Fvar, logspace: bool = False, epsilon=None, **Ys):
     """
