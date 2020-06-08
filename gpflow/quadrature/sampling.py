@@ -1,4 +1,6 @@
-
+from typing import Iterable
+import tensorflow as tf
+from gpflow import default_float
 
 
 def ndiag_mc(funcs, S: int, Fmu, Fvar, logspace: bool = False, epsilon=None, **Ys):
