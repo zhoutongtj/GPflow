@@ -18,10 +18,10 @@ from collections.abc import Iterable
 import numpy as np
 import tensorflow as tf
 
-from .config import default_float
-from .utilities import to_default_float
+from ..config import default_float
+from ..utilities import to_default_float
 
-from .gaussian_quadrature import NDDiagGHQuadrature
+from .gauss_hermite import NDDiagGHQuadrature
 
 
 def hermgauss(n: int):
