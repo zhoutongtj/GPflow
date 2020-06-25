@@ -103,7 +103,7 @@ class DummyModel(gpflow.models.BayesianModel):
         self.theta = gpflow.Parameter(self.value, prior=prior, transform=transform)
 
     def maximum_log_likelihood_objective(self):
-        return (self.theta + 5) ** 2
+        return (self.theta.to_constrained() + 5) ** 2
 
 
 def test_map_invariance_to_transform():

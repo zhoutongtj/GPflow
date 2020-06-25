@@ -47,11 +47,11 @@ class Stationary(Kernel):
         return self.lengthscales.shape.ndims > 0
 
     def scale(self, X):
-        X_scaled = X / self.lengthscales if X is not None else X
+        X_scaled = X / self.lengthscales.to_constrained() if X is not None else X
         return X_scaled
 
     def K_diag(self, X):
-        return tf.fill(tf.shape(X)[:-1], tf.squeeze(self.variance))
+        return tf.fill(tf.shape(X)[:-1], tf.squeeze(self.variance.to_constrained()))
 
 
 class IsotropicStationary(Stationary):
@@ -129,7 +129,7 @@ class SquaredExponential(IsotropicStationary):
     """
 
     def K_r2(self, r2):
-        return self.variance * tf.exp(-0.5 * r2)
+        return self.variance.to_constrained() * tf.exp(-0.5 * r2)
 
 
 class RationalQuadratic(IsotropicStationary):
