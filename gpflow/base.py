@@ -84,7 +84,7 @@ class PriorOn(Enum):
     UNCONSTRAINED = "unconstrained"
 
 
-class Parameter(tf.Module):
+class _Parameter(tf.Module):
     def __init__(
         self,
         value: TensorData,
@@ -123,7 +123,7 @@ class Parameter(tf.Module):
         if self.prior is None:
             return tf.convert_to_tensor(0.0, dtype=self.dtype)
 
-        y = self.read_value()
+        y = self.to_constrained()
 
         if self.prior_on == PriorOn.CONSTRAINED:
             # evaluation is in same space as prior
@@ -149,31 +149,9 @@ class Parameter(tf.Module):
     def prior_on(self, value: Union[str, PriorOn]) -> None:
         self._prior_on = PriorOn(value)
 
-    def value(self) -> tf.Tensor:
-        return _to_constrained(self._unconstrained.value(), self.transform)  # type: ignore  # assumes _to_constrained returns a tf.Tensor
-
-    def read_value(self) -> tf.Tensor:
-        return _to_constrained(self._unconstrained.read_value(), self.transform)  # type: ignore  # assumes _to_constrained returns a tf.Tensor
-
-    def experimental_ref(self) -> "Parameter":
-        return self
-
-    def deref(self) -> "Parameter":
-        return self
-
     @property
     def unconstrained_variable(self) -> tf.Variable:
         return self._unconstrained
-
-    @property
-    def transform(self) -> Optional[Transform]:
-        return self._transform
-
-    @transform.setter
-    def transform(self, new_transform: Optional[Transform]) -> None:
-        constrained_value = self.read_value()
-        self._transform = new_transform
-        self.assign(constrained_value)
 
     @property
     def trainable(self) -> bool:
@@ -185,8 +163,24 @@ class Parameter(tf.Module):
         return self._unconstrained.trainable
 
     @property
-    def initial_value(self) -> tf.Tensor:
-        return self._unconstrained.initial_value
+    def transform(self) -> Optional[Transform]:
+        return self._transform
+
+    @transform.setter
+    def transform(self, new_transform: Optional[Transform]) -> None:
+        constrained_value = self.to_constrained()
+        self._transform = new_transform
+        self.assign(constrained_value)
+
+    def to_constrained(self):
+        return _to_constrained(self._unconstrained, self.transform)
+
+    @property
+    def dtype(self) -> tf.DType:
+        return self._unconstrained.dtype
+
+    def numpy(self) -> np.ndarray:
+        return self.to_constrained().numpy()
 
     def validate_unconstrained_value(self, value: TensorData, dtype: DType) -> tf.Tensor:
         value = _cast_to_dtype(value, dtype)
@@ -231,6 +225,56 @@ class Parameter(tf.Module):
         )
 
     @property
+    def shape(self) -> tf.TensorShape:
+        if self.transform is not None:
+            return self.transform.forward_event_shape(self._unconstrained.shape)
+        return self._unconstrained.shape
+
+    def __repr__(self) -> str:
+        unconstrained = self.unconstrained_variable
+        constrained = self.to_constrained()
+        if tf.executing_eagerly():
+            info = (
+                f"unconstrained-shape={unconstrained.shape} "
+                f"unconstrained-value={unconstrained.numpy()} "
+                f"constrained-shape={constrained.shape} "
+                f"constrained-value={constrained.numpy()}"
+            )
+        else:
+            if unconstrained.shape == constrained.shape:
+                info = f"shape={constrained.shape}"
+            else:
+                info = (
+                    f"unconstrained-shape={unconstrained.shape} "
+                    f"constrained-shape={constrained.shape}"
+                )
+
+        return f"<gpflow.Parameter {self.name!r} dtype={self.dtype.name} {info}>"
+
+
+class _ExplicitParameter(_Parameter):
+    def __call__(self):
+        return self.to_constrained()
+
+
+class _TensorlikeParameter(_Parameter):
+    def value(self) -> tf.Tensor:
+        return _to_constrained(self._unconstrained.value(), self.transform)  # type: ignore  # assumes _to_constrained returns a tf.Tensor
+
+    def read_value(self) -> tf.Tensor:
+        return _to_constrained(self._unconstrained.read_value(), self.transform)  # type: ignore  # assumes _to_constrained returns a tf.Tensor
+
+    def experimental_ref(self) -> "Parameter":
+        return self
+
+    def deref(self) -> "Parameter":
+        return self
+
+    @property
+    def initial_value(self) -> tf.Tensor:
+        return self._unconstrained.initial_value
+
+    @property
     def is_tensor_like(self) -> bool:
         """
         This method means that TensorFlow's `tensor_util.is_tensor` function
@@ -251,21 +295,8 @@ class Parameter(tf.Module):
         return self._unconstrained.device
 
     @property
-    def dtype(self) -> tf.DType:
-        return self._unconstrained.dtype
-
-    @property
     def op(self) -> tf.Operation:
         return self._unconstrained.op
-
-    @property
-    def shape(self) -> tf.TensorShape:
-        if self.transform is not None:
-            return self.transform.forward_event_shape(self._unconstrained.shape)
-        return self._unconstrained.shape
-
-    def numpy(self) -> np.ndarray:
-        return self.read_value().numpy()
 
     def get_shape(self) -> tf.TensorShape:
         return self.shape
@@ -278,27 +309,6 @@ class Parameter(tf.Module):
     @property
     def handle(self):  # type unknown
         return self._unconstrained.handle
-
-    def __repr__(self) -> str:
-        unconstrained = self.unconstrained_variable
-        constrained = self.read_value()
-        if tf.executing_eagerly():
-            info = (
-                f"unconstrained-shape={unconstrained.shape} "
-                f"unconstrained-value={unconstrained.numpy()} "
-                f"constrained-shape={constrained.shape} "
-                f"constrained-value={constrained.numpy()}"
-            )
-        else:
-            if unconstrained.shape == constrained.shape:
-                info = f"shape={constrained.shape}"
-            else:
-                info = (
-                    f"unconstrained-shape={unconstrained.shape} "
-                    f"constrained-shape={constrained.shape}"
-                )
-
-        return f"<gpflow.Parameter {self.name!r} dtype={self.dtype.name} {info}>"
 
     # Below
     # TensorFlow copy-paste code to make variable-like object to work
@@ -341,8 +351,25 @@ class Parameter(tf.Module):
     __array_priority__ = 100
 
 
-Parameter._OverloadAllOperators()
-tf.register_tensor_conversion_function(Parameter, lambda x, *args, **kwds: x.read_value())
+_TensorlikeParameter._OverloadAllOperators()
+tf.register_tensor_conversion_function(_TensorlikeParameter, lambda x, *args, **kwds: x.read_value())
+
+
+def experimental_parameter_for_saving():
+    global Parameter
+    Parameter = _ExplicitParameter
+
+
+def experimental_parameter_for_tensors():
+    global Parameter
+    Parameter = _TensorlikeParameter
+
+
+import os
+if os.environ.get("PARAMETER") == "explicit":
+    experimental_parameter_for_saving()
+else:
+    experimental_parameter_for_tensors()
 
 
 def _cast_to_dtype(
